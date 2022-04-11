@@ -16,7 +16,7 @@ This is imho the best file commander ever invented, please prove me wrong..)
 
 4. Install Windows Terminal or Windows Terminal Preview.
 
-5. Download and install these Fonts
+5. Download and install these Fonts and set them as defaul in Windows Terminal
    - [MesloLGS NF Regular.ttf](
        https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf)
    - [MesloLGS NF Bold.ttf](
