@@ -5,8 +5,12 @@
 
 . $env:USERPROFILE\.config\aliases.ps1
 
-oh-my-posh init pwsh | Invoke-Expression
-Set-PoshPrompt paradox
+Import-Module posh-git
+Import-Module oh-my-posh
+
+$omp_config = Join-Path $env:USERPROFILE .config\powershell\takuya.omp.json
+
+oh-my-posh init pwsh -c $omp_config | Invoke-Expression
 
 Import-Module Terminal-Icons
 

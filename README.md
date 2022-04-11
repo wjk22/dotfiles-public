@@ -1,6 +1,10 @@
 # public dotfiles .. 
 Just my own setup for Windows and Linux as my work environment etc
 
+Btw I use bitwarden/duo/2fa for nearly all my logins and store my own data encrypted
+at my own seafile server or my own gogs/gitea server. 
+
+v0.2 
 
 ## Windows
 
@@ -27,6 +31,8 @@ This is imho the best file commander ever invented, please prove me wrong..)
        https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf)
 
 6. Install [Oh My Posh](https://ohmyposh.dev/) - Prompt Engine
+`Install-Module oh-my-posh -Scope CurrentUser -Force`<br>
+'Install-Module posh-git -Scope CurrentUser -Forice`<br>
 
 7. Install [Terminal Icons](https://github.com/devblackops/Terminal-Icons) - Folder and File Icons
 
@@ -46,6 +52,12 @@ my data in my own cloud encrypted and on a backup drive.
 
 12. Install Macrium Reflect Free and backup your data every week at least ..
 
+13. Install Windows Update shell scripts with<br>
+`gsudo admin shell> Install-Module -Name PSWindowsUpdate -Force`<br>
+
+14. Install Bitwarden for Chrome/Firefox/Windows and connect it to your own server.
+
+15. Install Duo Security as dual factor login for you windows.
 
 ## Linux (Debian in WSL2)
 
@@ -74,6 +86,27 @@ my data in my own cloud encrypted and on a backup drive.
 
 7. Install sl
 'sudo apt install sl'
+
+## Linux Server (Debian in Proxmox)
+
+1. Setup a proxmox server. This is my currently favourite virtualization platform, after being a long vsphere and other user.
+
+2. Setup a debian inside the proxmox server.
+
+3. change /etc/apt/sources.list add contrib non-free, run apt update, apt distupgrade
+
+4. Install docker docker-compose, vim, htop, tmux, zsh and the other usual suspects 
+
+5. Install your favorite webserver.
+
+6. Install Vaultwarden docker via docker-compose.
+
+7. Install SeaFile. 
+
+8. Install Gogs or Gitea.
+
+9. Secure all webservices with lets-encrypt/certbot.
+
  
 ## Mac 
  

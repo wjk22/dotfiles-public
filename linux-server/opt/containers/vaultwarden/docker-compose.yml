@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+     - "TZ=Europe/Berlin"
+     env_file:
+     - ./.env 
+    volumes:
+      - ./data:/data
+      - /var/log/docker/vaultwarden:/var/log/
+    dns:
+     - 8.8.8.8
+    ports:
+     - 3012
+     - 8080:80
