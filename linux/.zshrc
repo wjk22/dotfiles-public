@@ -114,11 +114,19 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
+#Use New Gradle
 #export GRADLE_HOME=/opt/gradle
+
+#Set Path for PNPM
 export PNPM_HOME="/home/wjk/.local/share/pnpm"
 export PATH="$PNPM_HOME:$PATH:$GRADLE_HOME/bin"
 
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
+#Set local Aliases
 source ~/.aliases
+
+#evaluate locale DIR_COLORS
+eval "$(dircolors ~/.dir_colors)"
+zstyle ':completion:*:default' list-colors "$LS_COLORS"
