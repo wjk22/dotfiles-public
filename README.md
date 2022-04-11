@@ -74,6 +74,8 @@ hehe stopped using a mac two years ago :P
 
 ## Stuff to try
 
+eal opens aliases in vim and rereads aliases
+
 #### Windows
 Alt-space opens wox
 
