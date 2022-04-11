@@ -1,5 +1,5 @@
 # public dotfiles .. 
-Just my own work setup for Windows and Linux as my work environment etc
+Just my own setup for Windows and Linux as my work environment etc
 
 
 ## Windows
@@ -41,11 +41,11 @@ This is imho the best file commander ever invented, please prove me wrong..)
 
 10. Install Debian from the Microsoft Store ..and change WSL to Version II
 
-## Linux
+## Linux (Debian in WSL2)
 
 // I am old school I prefer zsh over fish .. 
 
-0. Install zsh, tmux, htop, vim, mtr-tiny, curl, iptraf, tcpdump // I use Debian so apt install ....
+0. Install zsh, tmux, htop, vim, mtr-tiny, curl, iptraf,git, tcpdump, mc // I use Debian so apt install ....
 
 1. Install [Oh my ZSH](https://ohmyz.sh),[ZSH-Autosuggestion](https://github.com/zsh-users/zsh-autosuggestions),  enable plugins<br>
 
@@ -61,7 +61,12 @@ This is imho the best file commander ever invented, please prove me wrong..)
 
 4. Setup my tmux, I use old screen bindings Ctrl-a
 
+5. Install vscode from https://code.visualstudio.com/download
 
+6. Install NodeJS
+`sudo curl -sL https://deb.nodesource.com/setup_17.x | sudo bash -` 
+
+7. 
  
 ## Mac 
  
