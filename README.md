@@ -67,12 +67,12 @@ This is imho the best file commander ever invented, please prove me wrong..)
  
 hehe stopped using a mac two years ago :P 
 
-##Stuff to try
+## Stuff to try
 
-Windows
+#### Windows
 Alt-space opens wox
 
-Linux
+#### Linux
 Crlt-r in zsh searches in your history
 
 ### Links
