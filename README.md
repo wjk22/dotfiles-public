@@ -57,7 +57,7 @@ my data in my own cloud encrypted and on a backup drive.
 
 14. Install Bitwarden for Chrome/Firefox/Windows and connect it to your own server.
 
-15. Install Duo Security as dual factor login for you windows.
+15. Install Duo Security as dual factor login for your windows/remote desktops, bitwarden server etc pp. It is free for a 10 user or less environment.
 
 ## Linux (Debian in WSL2)
 
