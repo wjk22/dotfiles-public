@@ -128,6 +128,7 @@ https://github.com/craftzdog/dotfiles-public#readme
 
 Have a look at my awesome-list (https://github.com/wjk22/awesome-list) and you can see what kind of
 stuff I recommend 
+
 ---
 ... follow the white rabbit, no there is no spoon and may the force be with you .. <br>
 Wojciech Kalka <wojciech.kalka@skynet-services.net>
