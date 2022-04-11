@@ -19,8 +19,8 @@ Just my own work setup for Linux, Windows etc
 
 ## Windows
 
-1. Install [Chocolatey](https://chocolatey.org/) - Windows App Installer and some basic apps
-` choco install totalcommander powershell-core ditto imageglass everything git googlechrome firefox openvpn potplayer processhacker gsudo vscode`
+1. Install [Chocolatey](https://chocolatey.org/) - Windows App Installer and some basic apps <br>
+` choco install totalcommander powershell-core ditto imageglass everything git googlechrome firefox openvpn potplayer processhacker gsudo vscode vim wox wlc python3`
 
 2. Install Total Commander Ultima Prime                                                                                                                                 
 
