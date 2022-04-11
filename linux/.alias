@@ -1,0 +1,16 @@
+#Edit aliases
+alias eal='vim ~/.alias ; source ~/.alias'
+
+#Listings
+alias el='exa -l'
+alias es='exa'
+alias esa='exa -la'
+alias lla='lsa -la'
+alias ll='ls -l'
+
+#Other 
+alias g=git
+alias c=clear
+alias k='kill -9'
+alias f='find -name'
+

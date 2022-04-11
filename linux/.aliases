@@ -1,7 +1,0 @@
-alias el='exa -l'
-alias g=git
-alias eal='vim ~/.aliases ; source ~/.aliases'
-alias es='exa'
-alias esa='exa -la'
-alias lla='lsa -la'
-alias ll='ls -l'
