@@ -7,7 +7,7 @@ Just my own setup for Windows and Linux as my work environment etc
 0. Setup two users user/admin admin password protected, work only as normal user.  
 
 1. Install [Chocolatey](https://chocolatey.org/) - Windows App Installer and some basic apps <br>
-` choco install totalcommander powershell-core ditto imageglass everything git googlechrome firefox openvpn potplayer processhacker gsudo vscode vim wox wlc python3`
+` choco install totalcommander powershell-core ditto imageglass everything git googlechrome firefox openvpn potplayer processhacker gsudo vscode vim wox vlc python3`
 
 2. Install Total Commander Ultima Prime from https://www.tcup.pl/index.php/en/, buy a license from https://www.ghisler.com/ (
 This is imho the best file commander ever invented, please prove me wrong..)
@@ -42,7 +42,7 @@ This is imho the best file commander ever invented, please prove me wrong..)
 10. Install Debian from the Microsoft Store ..and change WSL to Version II
 
 11. Install Seafile if you use a seafile server, highly recommended, choco install seafile-client, I keep all
-my data in my own cloud encyrpted and on a backup drive. 
+my data in my own cloud encrypted and on a backup drive. 
 
 12. Install Macrium Reflect Free and backup your data every week at least ..
 
@@ -72,7 +72,8 @@ my data in my own cloud encyrpted and on a backup drive.
 6. Install NodeJS
 `sudo curl -sL https://deb.nodesource.com/setup_17.x | sudo bash -` 
 
-7. 
+7. Install sl
+'sudo apt install sl'
  
 ## Mac 
  
