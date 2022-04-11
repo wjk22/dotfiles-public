@@ -41,6 +41,12 @@ This is imho the best file commander ever invented, please prove me wrong..)
 
 10. Install Debian from the Microsoft Store ..and change WSL to Version II
 
+11. Install Seafile if you use a seafile server, highly recommended, choco install seafile-client, I keep all
+my data in my own cloud encyrpted and on a backup drive. 
+
+12. Install Macrium Reflect Free and backup your data every week at least ..
+
+
 ## Linux (Debian in WSL2)
 
 // I am old school I prefer zsh over fish .. 
