@@ -89,11 +89,11 @@ my data in my own cloud encrypted and on a backup drive.
 
 ## Linux Server (Debian in Proxmox)
 
-1. Setup a proxmox server. This is my currently favourite virtualization platform, after being a long vsphere and other user.
+1. Setup a proxmox server. This is my currently favourite virtualization platform, after being a long time vsphere and other alternatives user.
 
 2. Setup a debian inside the proxmox server.
 
-3. change /etc/apt/sources.list add contrib non-free, run apt update, apt distupgrade
+3. Change /etc/apt/sources.list add contrib non-free, run apt update, apt distupgrade
 
 4. Install docker docker-compose, vim, htop, tmux, zsh and the other usual suspects 
 
@@ -110,7 +110,7 @@ my data in my own cloud encrypted and on a backup drive.
  
 ## Mac 
  
-hehe stopped using a mac two years ago :P 
+hehe stopped using a mac two years ago :P
 
 ## Stuff to try
 
@@ -123,11 +123,11 @@ Alt-space opens wox
 Crlt-r in zsh searches in your history
 
 ### Links
-Inspired to publish my version by Craftzdog
-https://github.com/craftzdog/dotfiles-public#readme
 
 Have a look at my awesome-list (https://github.com/wjk22/awesome-list) and you can see what kind of
 stuff I recommend 
+
+Inspired to publish my version by Craftzdog https://github.com/craftzdog/dotfiles-public#readme
 
 ---
 ... follow the white rabbit, no there is no spoon and may the force be with you .. <br>
