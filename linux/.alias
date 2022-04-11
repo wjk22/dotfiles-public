@@ -7,10 +7,19 @@ alias es='exa'
 alias esa='exa -la'
 alias lla='lsa -la'
 alias ll='ls -l'
+alias lt='du -sh * | sort -h'
 
 #Other 
 alias g=git
 alias c=clear
 alias k='kill -9'
 alias f='find -name'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias h='history'
+alias hh='history 10'
+alias df='df -h'
+alias cpv='rsync -ah --info=progress2'
 
+#network
+alias ports='netstat -tulanp'

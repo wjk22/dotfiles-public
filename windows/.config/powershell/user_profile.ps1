@@ -1,9 +1,9 @@
 # set PowerShell to UTF-8
-[console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 
 #Set some aliases/functions
-
 . $env:USERPROFILE\.config\aliases.ps1
+
+[console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding
 
 Import-Module posh-git
 Import-Module oh-my-posh
