@@ -1,4 +1,4 @@
-# dotfile-public
+# public dotfiles .. 
 Just my own work setup for Linux, Windows etc
 
 
