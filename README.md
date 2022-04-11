@@ -14,7 +14,7 @@ This is imho the best file commander ever invented, please prove me wrong..)
 
 3. Install Netlimiter and buy a license - https://www.netlimiter.com/
 
-4. Install Windows Terminal or Windows Terminal Preview.
+4. Install Windows Terminal or Windows Terminal Preview. Work as user, elevate with gsudo.
 
 5. Download and install these Fonts and set them as defaul in Windows Terminal
    - [MesloLGS NF Regular.ttf](
