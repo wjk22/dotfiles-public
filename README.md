@@ -9,15 +9,14 @@ Just my own work setup for Windows and Linux as my work environment etc
 1. Install [Chocolatey](https://chocolatey.org/) - Windows App Installer and some basic apps <br>
 ` choco install totalcommander powershell-core ditto imageglass everything git googlechrome firefox openvpn potplayer processhacker gsudo vscode vim wox wlc python3`
 
-2. Install Total Commander Ultima Prime from https://www.tcup.pl/index.php/en/, buy a license from https://www.ghisler.com/ <br>
-This is imho the best file commander ever invented, please prove me wrong..
+2. Install Total Commander Ultima Prime from https://www.tcup.pl/index.php/en/, buy a license from https://www.ghisler.com/ (
+This is imho the best file commander ever invented, please prove me wrong..)
 
 3. Install Netlimiter and buy a license - https://www.netlimiter.com/
 
-4. Install Windows Termina/Windows Terminal Preview.
+4. Install Windows Terminal or Windows Terminal Preview.
 
 5. Download and install these Fonts
-
    - [MesloLGS NF Regular.ttf](
        https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf)
    - [MesloLGS NF Bold.ttf](
@@ -31,13 +30,20 @@ This is imho the best file commander ever invented, please prove me wrong..
 
 7. Install [Terminal Icons](https://github.com/devblackops/Terminal-Icons) - Folder and File Icons
 
-8. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
+8. Install scoop a command line user installer
+`Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')`
+`scoop install curl` 
 
-9. Install Debian from the Microsoft Store ..and change WSL to Version II
+9. Install z for Windows Powershell 
+`Install-Module -Name z`
+
+9. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
+
+10. Install Debian from the Microsoft Store ..and change WSL to Version II
 
 ## Linux
 
-// I am old school I prefer zsh over fish ..
+// I am old school I prefer zsh over fish .. 
 
 0. Install zsh, tmux, htop, vim, mtr-tiny, curl, iptraf, tcpdump // I use Debian so apt install ....
 
@@ -52,11 +58,22 @@ This is imho the best file commander ever invented, please prove me wrong..
 `git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k` <br>
 
 3. [z for zsh](https://github.com/agkozak/zsh-z) - Z Directory jumper for ZSH
+
+4. Setup my tmux, I use old screen bindings Ctrl-a
+
+
  
 ## Mac 
  
 hehe stopped using a mac two years ago :P 
 
+##Stuff to try
+
+Windows
+Alt-space opens wox
+
+Linux
+Crlt-r in zsh searches in your history
 
 ### Links
 Inspired to publish my version by Craftzdog
