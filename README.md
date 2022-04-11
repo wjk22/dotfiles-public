@@ -87,5 +87,5 @@ Inspired to publish my version by Craftzdog
 https://github.com/craftzdog/dotfiles-public#readme
 
 ---
-... follow the white rabbit, no there is no spoon and may the force be with you .. 
+... follow the white rabbit, no there is no spoon and may the force be with you .. <br>
 Wojciech Kalka <wojciech.kalka@skynet-services.net>
