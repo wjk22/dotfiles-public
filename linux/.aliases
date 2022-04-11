@@ -1,0 +1,4 @@
+alias ll='exa -l'
+alias g=git
+alias eal='vim ~/.aliases ; source ~/.aliases'
+
