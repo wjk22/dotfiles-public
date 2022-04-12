@@ -4,7 +4,11 @@ Just my own setup for Windows and Linux as my work environment etc
 Btw I use bitwarden/duo/2fa for nearly all my logins and store my own data encrypted
 at my own seafile server or my own gogs/gitea server. 
 
-v0.2 
+Latest Updates
+v0.22 Added a rudimentary linux client install script run cd linux, run bash install.sh
+v0.2 Added Linux Server information
+0.14 Added Linux Zsh dotfiles
+0.1 Started this project
 
 ## Windows
 
