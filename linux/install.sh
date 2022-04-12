@@ -3,8 +3,17 @@
 red='tput setaf 1'
 nc='tput setaf 7'
 
+useConfirm=true
+confirm() {
+   [ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)C"
+}
+
 $red ; echo "Installing Tek's environment....."
+echo "Please make sure you did sudo apt install tmux zsh git curl"
+echo "And type exit after Oh-my-zsh installs"
 $nc
+
+confirm
 
 #Install OH MY ZSH
 echo "Installing OH MY ZSH"
@@ -29,11 +38,6 @@ git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$
 sleep 1
 
 
-useConfirm=true
-
-confirm() {
-   [ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)C"
-}
 
 $red ; echo "Copying settings" 
 $nc 
