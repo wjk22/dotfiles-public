@@ -18,7 +18,7 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-m
 sleep 2
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 sleep 2
-git clone https://github.com/agkozak/zsh-z ${ZSH_CUSTOM:-~/oh-my-zsh/custom}/plugins/zsh-z
+git clone https://github.com/agkozak/zsh-z ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-z
 
 $red ; echo "Installing P10K"
 $nc
@@ -63,7 +63,7 @@ file_new=.p10k.zsh
 [ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
 cp -v $file_new $file_org
 
-file_org=~/.dir_color
+file_org=~/.dir_colors
 file_new=.dir_colors
 
 [ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
