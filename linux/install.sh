@@ -4,11 +4,17 @@ red='tput setaf 1'
 nc='tput setaf 7'
 
 useConfirm=true
+
 confirm() {
-   [ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)C"
+     	[ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)"
 }
 
+copyfile () {
+	[ -f $1  ] && mv -v $1 $1.$current_time
+	cp -v $1 $2
+}
 $red ; echo "Installing Tek's environment....."
+$nc
 echo "Please make sure you did sudo apt install tmux zsh git curl"
 echo "And type exit after Oh-my-zsh installs"
 $nc
@@ -23,6 +29,10 @@ sleep 2
 $nc
 
 #Install plugins
+$red
+echo "Installing some oh-my-zsh plugins"
+$nc 
+
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 sleep 2
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
@@ -36,7 +46,6 @@ $nc
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
 sleep 1
-
 
 
 $red ; echo "Copying settings" 
@@ -70,8 +79,10 @@ cp -v $file_new $file_org
 file_org=~/.dir_colors
 file_new=.dir_colors
 
-[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
-cp -v $file_new $file_org
+copy_file $file_org $file_new
+
+#[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+#cp -v $file_new $file_org
 
 file_org=~/.oh-my-zsh/plugins/tmux/tmux.only.conf
 file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
