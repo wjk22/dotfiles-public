@@ -37,6 +37,8 @@ current_time=$(date "+%Y.%m.%d-%H.%M.%S")
 echo "Current Time : $current_time"
 
 mv -v ~/.zshrc ~/zshrc.$current_time
-cp -v .zshrc ~/.zhrc
+cp -v .zshrc ~/.zshrc
+mv -v ~/.alias ~/.alias.$current_time
 cp -v .alias ~/.alias
+mv -v ~/.p10k.zsh ~/.p10k.zsh.$current_time
 cp -v .p10k.zsh ~/.p10k.zsh
