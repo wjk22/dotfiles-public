@@ -125,7 +125,7 @@ export PATH="$PNPM_HOME:$PATH:$GRADLE_HOME/bin"
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 
 #Set local Aliases
-source ~/.aliases
+source ~/.alias
 
 #evaluate locale DIR_COLORS
 eval "$(dircolors ~/.dir_colors)"

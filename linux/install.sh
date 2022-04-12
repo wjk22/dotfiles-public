@@ -10,15 +10,13 @@ $nc
 echo "Installing OH MY ZSH"
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
-
-sleep 1 
-$red ; echo "Installing OH MY ZSH Plugins"
+sleep 2 
 $nc
 
 #Install plugins
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
 
-sleep 1
+sleep 2
 
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
@@ -45,7 +43,7 @@ confirm
 current_time=$(date "+%Y.%m.%d-%H.%M.%S")
 echo "Current Time : $current_time"
 
-mkdir ~/.bak -v
+mkdir ~/.bak -v -p
 
 [ -f ~/.zshrc ] && mv -v ~/.zshrc ~/.bak/zshrc.$current_time
 cp -v .zshrc ~/.zshrc
