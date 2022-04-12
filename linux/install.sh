@@ -15,10 +15,10 @@ $nc
 
 #Install plugins
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
-
 sleep 2
-
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
+sleep 2
+git clone https://github.com/agkozak/zsh-z $ZSH_CUSTOM/plugins/zsh-z
 
 $red ; echo "Installing P10K"
 $nc
@@ -32,7 +32,7 @@ sleep 1
 useConfirm=true
 
 confirm() {
-   [ "$useConfirm" = true ] && read -p "$Proceed? (Enter) -  (^C to abort)C"
+   [ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)C"
 }
 
 $red ; echo "Copying settings" 
@@ -45,17 +45,34 @@ echo "Current Time : $current_time"
 
 mkdir ~/.bak -v -p
 
-[ -f ~/.zshrc ] && mv -v ~/.zshrc ~/.bak/zshrc.$current_time
-cp -v .zshrc ~/.zshrc
+file_org=~/.zshrc
+file_new=.zshrc
 
-[ -f ~/.alias ] && mv -v ~/.alias ~/.bak/alias.$current_time
-cp -v .alias ~/.alias
+[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+cp -v $file_new $file_org
 
-[ -f ~/.p1-k] && mv -v ~/.p10k.zsh ~/.bak/p10k.zsh.$current_time
-cp -v .p10k.zsh ~/.p10k.zsh
+file_org=~/.alias
+file_new=.alias
 
-[ -f ~/.dir_colors ] && mv -v ~/.alias ~/.bak/dir_colors.$current_time
-cp -v .dir_colors ~/.dir_colors
+[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+cp -v $file_new $file_org
 
-#[ -f ~/.dir_colors ] && mv -v ~/.alias ~/.bak/dir_colors.$current_time
-#cp -v .dir_colors ~/.dir_colors
+file_org=~/.p10k.zsh
+file_new=.p10k.zsh
+
+[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+cp -v $file_new $file_org
+
+file_org=~/.dir_color
+file_new=.dir_colors
+
+[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+cp -v $file_new $file_org
+
+file_org=~/.oh-my-zsh/plugins/tmux/tmux.only.conf
+file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
+
+[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
+cp -v $file_new $file_org
+
+source ~/.zshrc
