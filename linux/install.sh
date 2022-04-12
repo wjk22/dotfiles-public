@@ -3,14 +3,14 @@
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo "$RED Installing Tek's environment.....$NC"
+echo "${RED} Installing Tek's environment.....${NC}"
 
 #Install OH MY ZSH
-echo "$RED Installing OH MY ZSH $NC"
+echo "${RED} Installing OH MY ZSH ${NC}"
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 sleep 1 
-echo "$RED Installing OH MY ZSH Plugins $NC"
+echo "${RED} Installing OH MY ZSH Plugins ${NC}"
 
 #Install plugins
 git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-autosuggestions
@@ -19,7 +19,7 @@ sleep 1
 
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 
-echo "$RED Installing P10K $NC"
+echo "${RED} Installing P10K ${NC}"
 
 #Install theme
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
@@ -30,10 +30,10 @@ sleep 1
 useConfirm=true
 
 confirm() {
-   [ "$useConfirm" = true ] && read -p "$NC Proceed? (Enter) - $RED (^C to abort) $NC"
+   [ "$useConfirm" = true ] && read -p "${NC} Proceed? (Enter) - ${RED} (^C to abort) $NC"
 }
 
-echo "$RED Copying settings $NC" 
+echo "${RED} Copying settings ${NC}" 
 confirm
 
 current_time=$(date "+%Y.%m.%d-%H.%M.%S")
