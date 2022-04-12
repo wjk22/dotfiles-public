@@ -5,13 +5,17 @@ nc='tput setaf 7'
 
 useConfirm=true
 
+current_time=$(date "+%Y.%m.%d-%H.%M.%S")
+echo "Current Time : $current_time"
+
 confirm() {
      	[ "$useConfirm" = true ] && read -p "Proceed? (Enter) -  (^C to abort)"
 }
 
 copyfile () {
+	echo "Updating $1 with $2"
 	[ -f $1  ] && mv -v $1 $1.$current_time
-	cp -v $1 $2
+	cp -v $2 $1 
 }
 $red ; echo "Installing Tek's environment....."
 $nc
@@ -53,40 +57,29 @@ $nc
 
 confirm
 
-current_time=$(date "+%Y.%m.%d-%H.%M.%S")
-echo "Current Time : $current_time"
-
-mkdir ~/.bak -v -p
+#mkdir ~/.bak -v -p
 
 file_org=~/.zshrc
 file_new=.zshrc
 
-[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
-cp -v $file_new $file_org
+copyfile $file_org $file_new
 
 file_org=~/.alias
 file_new=.alias
 
-[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
-cp -v $file_new $file_org
+copyfile $file_org $file_new
 
 file_org=~/.p10k.zsh
 file_new=.p10k.zsh
 
-[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
-cp -v $file_new $file_org
+copyfile $file_org $file_new
 
 file_org=~/.dir_colors
 file_new=.dir_colors
 
-copy_file $file_org $file_new
-
-#[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
-#cp -v $file_new $file_org
+copyfile $file_org $file_new
 
 file_org=~/.oh-my-zsh/plugins/tmux/tmux.only.conf
 file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
 
-[ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
 cp -v $file_new $file_org
-
