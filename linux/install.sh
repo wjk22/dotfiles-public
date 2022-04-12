@@ -18,7 +18,7 @@ git clone https://github.com/zsh-users/zsh-autosuggestions ${ZSH_CUSTOM:-~/.oh-m
 sleep 2
 git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/zsh-syntax-highlighting
 sleep 2
-git clone https://github.com/agkozak/zsh-z $ZSH_CUSTOM/plugins/zsh-z
+git clone https://github.com/agkozak/zsh-z ${ZSH_CUSTOM:-~/oh-my-zsh/custom}/plugins/zsh-z
 
 $red ; echo "Installing P10K"
 $nc
@@ -75,4 +75,3 @@ file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
 [ -f $file_org  ] && mv -v $file_org $fileorg.$current_time
 cp -v $file_new $file_org
 
-source ~/.zshrc
