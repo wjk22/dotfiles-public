@@ -19,14 +19,18 @@ copyfile () {
 }
 $red ; echo "Installing Tek's environment....."
 $nc
-echo "Please make sure you did sudo apt install tmux zsh git curl"
-echo "And type exit after Oh-my-zsh installs"
-$nc
+echo "Trying to install linux apps"
 
+$nc
 confirm
+
+sudo -s apt install tmux wget curl zsh htop vim tcpdump 
 
 #Install OH MY ZSH
 echo "Installing OH MY ZSH"
+confirm 
+echo "Please type exit after Oh-my-zsh installs"
+sleep 1
 sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 sleep 2 
