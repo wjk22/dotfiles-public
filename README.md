@@ -44,24 +44,27 @@ This is imho the best file commander ever invented, please prove me wrong..)
 `Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')`
 `scoop install curl` 
 
-9. Install z for Windows Powershell 
+9. Install z for Windows Powershell, Readline and Fzf 
 `Install-Module -Name z`
+`Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentuSer -Force -SkipPublisherCheck
+`scoop install fzf
+`Install-Module -Name PSFzf -Scope CurrentUser -Force
 
-9. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
+10. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
 
-10. Install Debian from the Microsoft Store ..and change WSL to Version II
+11. Install Debian from the Microsoft Store ..and change WSL to Version II
 
-11. Install Seafile if you use a seafile server, highly recommended, choco install seafile-client, I keep all
+12. Install Seafile if you use a seafile server, highly recommended, choco install seafile-client, I keep all
 my data in my own cloud encrypted and on a backup drive. 
 
-12. Install Macrium Reflect Free and backup your data every week at least ..
+13. Install Macrium Reflect Free and backup your data every week at least ..
 
-13. Install Windows Update shell scripts with<br>
+14. Install Windows Update shell scripts with<br>
 `gsudo admin shell> Install-Module -Name PSWindowsUpdate -Force`<br>
 
-14. Install Bitwarden for Chrome/Firefox/Windows and connect it to your own server.
+15. Install Bitwarden for Chrome/Firefox/Windows and connect it to your own server.
 
-15. Install Duo Security as dual factor login for your windows/remote desktops, bitwarden server etc pp. It is free for a 10 user or less environment.
+16. Install Duo Security as dual factor login for your windows/remote desktops, bitwarden server etc pp. It is free for a 10 user or less environment.
 
 ## Linux (Debian in WSL2)
 
