@@ -1,11 +1,13 @@
 # public dotfiles .. 
+
 Just my own setup for Windows and Linux as my work environment etc
 
 Btw I use bitwarden/duo/2fa for nearly all my logins and store my own data encrypted
 at my own seafile server or my own gogs/gitea server. 
 
 Latest Updates<br>
-v0.22 Added a rudimentary linux client install script run cd linux, run bash install.sh<br>
+v0.25 Added some basic windows scripts and more features like fzf, readline for windows etc <br>
+v0.22 Added a rudimentary linux client install script run cd linux, run bash install.sh <br>
 v0.2 Added Linux Server information<br>
 0.14 Added Linux Zsh dotfiles<br>
 0.1 Started this project<br>
@@ -87,12 +89,14 @@ my data in my own cloud encrypted and on a backup drive.
 
 4. Setup my tmux, I use old screen bindings Ctrl-a
 
-5. Install vscode from https://code.visualstudio.com/download
+5. Install neovim from 
 
-6. Install NodeJS
+6. Install vscode from https://code.visualstudio.com/download
+
+7. Install NodeJS
 `sudo curl -sL https://deb.nodesource.com/setup_17.x | sudo bash -` 
 
-7. Install sl
+8. Install sl
 'sudo apt install sl'
 
 ## Linux Server (Debian in Proxmox)
