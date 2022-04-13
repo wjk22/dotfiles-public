@@ -69,6 +69,7 @@ my data in my own cloud encrypted and on a backup drive.
 ## Linux (Debian in WSL2)
 
 // I am old school I prefer zsh over fish .. 
+// cd linux ; bash install.sh for the brave
 
 0. Install zsh, tmux, htop, vim, mtr-tiny, curl, iptraf,git, tcpdump, mc // I use Debian so apt install ....
 
