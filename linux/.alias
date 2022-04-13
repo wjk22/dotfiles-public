@@ -1,5 +1,5 @@
 #Edit aliases
-alias eal='vim ~/.alias ; source ~/.alias'
+alias eal='v ~/.alias ; source ~/.alias'
 
 #Listings
 alias el='exa -l'
@@ -19,7 +19,14 @@ alias ...='cd ../..'
 alias h='history'
 alias hh='history 10'
 alias df='df -h'
-alias cpv='rsync -ah --info=progress2'
+alias du='du -h'
+alias cpv='rsync -ah --info --progress'
 
 #network
 alias ports='netstat -tulanp'
+
+#neovim
+alias vim='nvim'
+alias vi='nvim'
+alias v='nvim'
+alias evi='v ~/.config/nvim/init.vim'

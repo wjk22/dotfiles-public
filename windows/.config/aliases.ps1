@@ -1,7 +1,9 @@
 #Set Paths
 $Env:PATH += ";C:\Tools\git\usr\bin"
+
 #Aliases
 
+Set-Alias -Name vim -Value nvim
 Set-Alias wo Write-Output
 Set-Alias ll ls
 Set-Alias lld ls
