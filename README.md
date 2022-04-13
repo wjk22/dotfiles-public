@@ -45,10 +45,10 @@ This is imho the best file commander ever invented, please prove me wrong..)
 `scoop install curl` 
 
 9. Install z for Windows Powershell, Readline and Fzf <br>
-`Install-Module -Name z`<br>
-`Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentuSer -Force -SkipPublisherCheck<br>
-`scoop install fzf<br>
-`Install-Module -Name PSFzf -Scope CurrentUser -Force<br>
+`Install-Module -Name z` <br>
+`Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentuSer -Force -SkipPublisherCheck` <br>
+`scoop install fzf` <br>
+`Install-Module -Name PSFzf -Scope CurrentUser -Force` <br>
 
 10. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
 
