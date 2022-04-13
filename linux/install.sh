@@ -53,18 +53,6 @@ $nc
 #Install theme
 git clone --depth=1 https://github.com/romkatv/powerlevel10k.git ${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}/themes/powerlevel10k
 
-sleep 1
-$red ; echo "Installing MesloLGS Font"
-
-mkdir -v -p ~/.local/share/fonts
-cd ~/.local/share/fonts
-wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
-wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
-wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
-wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
-ls  -l
-fc-cache -f
-
 $red ; echo "Copying settings" 
 $nc 
 
@@ -97,3 +85,16 @@ file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
 
 copyfile $file_org $file_new
 
+sleep 1
+$red ; echo "Installing MesloLGS Font"
+
+confirm
+mkdir -v -p ~/.local/share/fonts
+cd ~/.local/share/fonts
+wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
+wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
+wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
+wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
+ls  -l
+fc-cache -f
+cd -
