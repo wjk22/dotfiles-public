@@ -24,7 +24,7 @@ echo "Trying to install linux apps"
 $nc
 confirm
 
-sudo -s apt install tmux wget curl zsh htop vim tcpdump 
+sudo apt install tmux wget curl zsh htop vim tcpdump 
 
 #Install OH MY ZSH
 echo "Installing OH MY ZSH"
