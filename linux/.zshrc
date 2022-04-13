@@ -84,6 +84,7 @@ plugins=(
 	npm
 	tmux
 	zsh-z
+	fzf
 )
 
 source $ZSH/oh-my-zsh.sh

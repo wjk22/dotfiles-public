@@ -34,9 +34,9 @@ This is imho the best file commander ever invented, please prove me wrong..)
    - [MesloLGS NF Bold Italic.ttf](
        https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf)
 
-6. Install [Oh My Posh](https://ohmyposh.dev/) - Prompt Engine
+6. Install [Oh My Posh](https://ohmyposh.dev/) - Prompt Engine<br>
 `Install-Module oh-my-posh -Scope CurrentUser -Force`<br>
-'Install-Module posh-git -Scope CurrentUser -Forice`<br>
+`Install-Module posh-git -Scope CurrentUser -Force`<br>
 
 7. Install [Terminal Icons](https://github.com/devblackops/Terminal-Icons) - Folder and File Icons
 
@@ -44,11 +44,11 @@ This is imho the best file commander ever invented, please prove me wrong..)
 `Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://get.scoop.sh')`
 `scoop install curl` 
 
-9. Install z for Windows Powershell, Readline and Fzf 
-`Install-Module -Name z`
-`Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentuSer -Force -SkipPublisherCheck
-`scoop install fzf
-`Install-Module -Name PSFzf -Scope CurrentUser -Force
+9. Install z for Windows Powershell, Readline and Fzf <br>
+`Install-Module -Name z`<br>
+`Install-Module -Name PSReadLine -AllowPrerelease -Scope CurrentuSer -Force -SkipPublisherCheck<br>
+`scoop install fzf<br>
+`Install-Module -Name PSFzf -Scope CurrentUser -Force<br>
 
 10. Install WSL -> https://docs.microsoft.com/en-us/windows/wsl/install
 
