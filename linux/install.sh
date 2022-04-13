@@ -57,20 +57,20 @@ sleep 1
 $red ; echo "Installing MesloLGS Font"
 
 mkdir -v -p ~/.local/share/fonts
-cd ~/.local/share.fonts
+cd ~/.local/share/fonts
 wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Regular.ttf
 wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold%20Italic.ttf
 wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Italic.ttf
 wget https://github.com/romkatv/powerlevel10k-media/raw/master/MesloLGS%20NF%20Bold.ttf
 ls  -l
-fc-cache-f
+fc-cache -f
 
 $red ; echo "Copying settings" 
 $nc 
 
 confirm
 
-#mkdir ~/.bak -v -p
+mkdir ~/.bak -v -p
 
 file_org=~/.zshrc
 file_new=.zshrc
@@ -95,6 +95,5 @@ copyfile $file_org $file_new
 file_org=~/.oh-my-zsh/plugins/tmux/tmux.only.conf
 file_new=.oh-my-zsh/plugins/tmux/tmux.only.conf
 
-copyfile -v $file_new $file_org
-
+copyfile $file_org $file_new
 
