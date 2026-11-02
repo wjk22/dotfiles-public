@@ -15,6 +15,12 @@ Set-Alias wo Write-Output
 Set-Alias ll ls
 Set-Alias lld ls
 
+# Same file viewer as Linux (batcat on Debian).
+if (Get-Command bat -CommandType Application -ErrorAction SilentlyContinue) {
+    Set-Alias -Name bcat -Value bat
+    Set-Alias -Name cat -Value bat
+}
+
 # Same listings as on Linux
 function el { eza -l @args }
 function es { eza @args }

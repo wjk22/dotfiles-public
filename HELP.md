@@ -13,6 +13,7 @@ PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 | `fzf` | fuzzy finder | zsh: `Ctrl-r` history, `Ctrl-t` insert a file, `Alt-c` cd into a folder; PowerShell: `Ctrl+r` history, `Ctrl+f` file |
 | `fd` | find files by name | `fd name`, `fd -e md` (by extension), `fd -H name` (hidden files too) |
 | `bat` | cat with colours and line numbers | `bat file`, `bat -p file` (plain), `bat -l json` (pick a language) |
+| `cat`, `bcat` | use bat by default in zsh and PowerShell | `cat file`, `bcat file`; original reader: `command cat` on Linux, `Get-Content` in PowerShell |
 | `eza` | ls with colours, git status, icons | `el` long, `esa` long with hidden, `eza --tree -L 2` |
 | `zoxide` | jump to folders you've used | `z proj` jumps to the best match, `zi proj` picks from a list, `z -` back |
 | `btop` | processes, CPU, memory, disks, network | `f` filter, `k` kill the selected process, `q` quit |

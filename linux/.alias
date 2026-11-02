@@ -16,6 +16,12 @@ alias eall='v ~/.alias.local ; source ~/.alias'
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
 command -v fd >/dev/null || { command -v fdfind >/dev/null && alias fd='fdfind'; }
 
+# Use bat for interactive file viewing; keep the familiar bcat name too.
+if command -v bat >/dev/null; then
+  alias bcat='bat'
+  alias cat='bat'
+fi
+
 # Listings
 alias el='eza -l'
 alias es='eza'
