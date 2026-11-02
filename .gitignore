@@ -6,6 +6,13 @@
 .alias.local
 windows/packages.local.psd1
 
+# Mail accounts, credentials and personal settings never belong in Git.
+accounts.local
+settings.local
+aliases.local
+*.secret
+__pycache__/
+
 # Editor droppings
 *~
 *.un~

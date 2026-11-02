@@ -1,0 +1,6 @@
+# Leave standard Mutt navigation, reply, send and delete keys intact.
+# The Neovim composer keeps its existing Space leader and mappings.
+bind index,pager <F2> sidebar-toggle-visible
+bind index,pager <F3> sidebar-prev
+bind index,pager <F4> sidebar-next
+bind index,pager <F5> sidebar-open

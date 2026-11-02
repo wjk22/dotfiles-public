@@ -10,24 +10,40 @@ started=$(date +%s)
 
 usage() {
     cat <<'EOF'
-Usage: ./install.sh [--yes]
+Usage: ./install.sh [root|mail] [--yes]
 
   Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
   tmux, fonts and the dotfiles from linux/.
   On Windows, run .\install.ps1 in PowerShell instead.
 
+  root      same shell for root, from a private root-owned snapshot
+  mail      install the NeoMutt presentation config for your user
+
   --yes     accept every suggested answer and apply without asking
 EOF
 }
 
-assume_yes=no
+assume_yes=no; mode=user
 for arg in "$@"; do
     case $arg in
         --yes|-y) assume_yes=yes ;;
+        root|mail|--root-apply) [ "$mode" = user ] || { usage >&2; exit 2; }; mode=$arg ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
     esac
 done
+
+if [ "$mode" = root ]; then
+    exec /usr/bin/python3 "$repo/tools/root-shell.py" "$assume_yes"
+elif [ "$mode" = mail ]; then
+    exec /usr/bin/python3 "$repo/tools/install-mail.py" "$assume_yes"
+fi
+root_mode=no
+if [ "$mode" = --root-apply ]; then
+    [ "$(id -u)" = 0 ] && [ "$HOME" = /root ] || { echo 'Internal root mode requires root and HOME=/root.' >&2; exit 1; }
+    /usr/bin/python3 -I "$repo/tools/root-shell.py" --audit "$repo"
+    root_mode=yes
+fi
 
 # ---------------------------------------------------------------- output ---
 ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''
@@ -76,14 +92,22 @@ else
     check_warn Locale "$locale_name is not UTF-8 (see the end)"
 fi
 
-[ "$(id -u)" -ne 0 ] || die 'Run this as your normal user, not as root; it uses sudo where it needs to.'
-command -v sudo >/dev/null || die "sudo is missing; as root run: apt install sudo && adduser $(id -un) sudo, then log in again."
+if [ "$root_mode" = no ]; then
+    [ "$(id -u)" -ne 0 ] || die 'Run this as your normal user; use ./install.sh root for root.'
+    command -v sudo >/dev/null || die "sudo is missing; as root run: apt install sudo && adduser $(id -un) sudo, then log in again."
+fi
 command -v git >/dev/null || die 'git is missing; run: sudo apt install git'
-check_ok User "$(id -un), sudo and git present"
+if [ "$root_mode" = yes ]; then check_ok User 'root, private snapshot and clean environment'
+else check_ok User "$(id -un), sudo and git present"; fi
 
-dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a git checkout; clone the repo and run it from there."
-[ -z "$dirty" ] || die "The repo has uncommitted changes; commit or stash them first ($(printf '%s\n' "$dirty" | awk '{print $2}' | paste -sd ' ' -))."
-new_commit=$(git -C "$repo" rev-parse HEAD)
+if [ "$root_mode" = yes ]; then
+    new_commit=$(cat "$repo/.revision")
+    command -v zsh >/dev/null || die 'Install zsh with the normal installer first.'
+else
+    dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a git checkout; clone the repo and run it from there."
+    [ -z "$dirty" ] || die "The repo has uncommitted changes; commit or stash them first ($(printf '%s\n' "$dirty" | awk '{print $2}' | paste -sd ' ' -))."
+    new_commit=$(git -C "$repo" rev-parse HEAD)
+fi
 check_ok Repo "clean at ${new_commit:0:7}"
 
 # Backups go to ~/.dotfiles-backup (private, 0700); never through a link.
@@ -108,7 +132,7 @@ elif [ "$old_commit" = "$new_commit" ]; then
     printf '  %s, nothing new in this checkout\n' "${new_commit:0:7}"
 else
     printf '  %s %s %s' "${old_commit:0:7}" "$arrow" "${new_commit:0:7}"
-    if git -C "$repo" merge-base --is-ancestor "$old_commit" "$new_commit" 2>/dev/null; then
+    if [ "$root_mode" = no ] && git -C "$repo" merge-base --is-ancestor "$old_commit" "$new_commit" 2>/dev/null; then
         count=$(git -C "$repo" rev-list --count "$old_commit..$new_commit")
         if [ "$count" = 1 ]; then printf ' - 1 new commit'; else printf ' - %s new commits' "$count"; fi
     fi
@@ -137,6 +161,7 @@ links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf)
 # Lines only in the user's copy of these are reported: they may be machine-local.
 declare -A local_file=([.zshrc]='~/.zshrc.local' [.alias]='~/.alias.local')
 stamp=$(date +%Y%m%d-%H%M%S)
+[ "$root_mode" = no ] || stamp=$(date +%Y%m%d-%H%M%S-%N)
 
 link_list=$(printf '~/%s ' "${links[@]}")
 
@@ -162,6 +187,14 @@ for key in "${keys[@]}"; do
     previous=$(state "$key" || true)
     case $previous in yes|no) answer[$key]=$previous ;; esac
 done
+
+if [ "$root_mode" = yes ]; then
+    keys=(ohmyzsh shell links)
+    labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root shell config (backup first)')
+    details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "$link_list")
+    answer[packages]=no; answer[fonts]=no
+    answer[ohmyzsh]=yes; answer[shell]=yes; answer[links]=yes
+fi
 
 yn() { if [ "$1" = yes ]; then printf 'Y/n'; else printf 'y/N'; fi; }
 
@@ -310,16 +343,21 @@ need_sudo=no
 if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then need_sudo=yes; fi
 sudo_keeper=''
 if [ "$need_sudo" = yes ]; then
-    printf '\n'
-    sudo -v || die 'sudo did not work; your user needs sudo rights for packages and the login shell.'
-    # Keep the sudo timestamp fresh during long apt runs; ends with this script.
-    (while sleep 50; do sudo -n -v 2>/dev/null || exit 0; done) & sudo_keeper=$!
+    if [ "$root_mode" = yes ]; then
+        need_sudo=no
+    else
+        printf '\n'
+        sudo -v || die 'sudo did not work; your user needs sudo rights for packages and the login shell.'
+        # Keep the sudo timestamp fresh during long apt runs; ends with this script.
+        (while sleep 50; do sudo -n -v 2>/dev/null || exit 0; done) & sudo_keeper=$!
+    fi
 fi
 
 # ------------------------------------------------------------------- log ---
 umask 022
 mkdir -p "$state_dir/logs"
 log="$state_dir/logs/install-linux-$(date -u +%Y%m%dT%H%M%SZ).log"
+[ "$root_mode" = no ] || log="$state_dir/logs/install-linux-root-$(date -u +%Y%m%dT%H%M%S-%NZ).log"
 (set -C; : > "$log") || exit 1
 chmod 600 "$log"
 find "$state_dir/logs" -maxdepth 1 -type f -name 'install-linux-*.log' | LC_ALL=C sort -r | sed '1,10d' |
@@ -400,6 +438,7 @@ run() {
 fail() { printf '%s\n' "$1" >> "$log"; show_error "$1"; exit 1; }
 
 sudo_ready() {
+    [ "$root_mode" = no ] || return 0
     sudo -n true 2>/dev/null || fail 'sudo needs the password again (its timeout ran out); run ./install.sh again.'
 }
 apt_install() {
@@ -523,7 +562,8 @@ if [ "${answer[shell]}" = yes ]; then
         passed "already $zsh_path"
     else
         sudo_ready
-        run sudo -n chsh -s "$zsh_path" "$(id -un)"
+        if [ "$root_mode" = yes ]; then run chsh -s "$zsh_path" root
+        else run sudo -n chsh -s "$zsh_path" "$(id -un)"; fi
         changes+=("login shell: $login_shell $arrow $zsh_path")
         passed "$login_shell $arrow $zsh_path"
     fi

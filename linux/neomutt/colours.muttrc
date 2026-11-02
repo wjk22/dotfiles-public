@@ -1,0 +1,38 @@
+# Gruvbox warmth with the existing NeoSolarized dark/transparent editor in mind:
+# warm paper text, restrained amber, muted teal, and the terminal background.
+# 256-colour values work in xterm-256color/tmux without a theme dependency.
+color normal              color223 default
+color indicator      bold color223 color237
+color status         bold color223 color237
+color tree                color109 default
+color tilde               color239 default
+color message             color109 default
+color error          bold color167 default
+color warning        bold color214 default
+color search              color235 color214
+color markers             color245 default
+color attachment          color214 default
+color signature           color245 default
+color quoted              color109 default
+color quoted1             color142 default
+color quoted2             color180 default
+color quoted3             color245 default
+color hdrdefault          color245 default
+color header         bold color109 default "^(From|To|Cc):"
+color header         bold color214 default "^Subject:"
+color body                color109 default "https?://[^ <>]+"
+
+color index               color142 default "~N"
+color index          bold color223 default "~U !~N"
+color index          bold color214 default "~F"
+color index               color180 default "~T"
+color index               color245 default "~D"
+
+color sidebar_background  color245 default
+color sidebar_divider     color239 default
+color sidebar_ordinary    color245 default
+color sidebar_highlight   color223 color237
+color sidebar_indicator bold color223 color237
+color sidebar_new    bold color142 default
+color sidebar_unread      color223 default
+color sidebar_flagged     color214 default

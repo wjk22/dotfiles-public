@@ -1,0 +1,18 @@
+# Copy the settings you need into ~/.config/neomutt/accounts.local.
+# This is an example, not an active account. All values below are placeholders.
+# Keep account settings and credentials OUTSIDE the Git checkout.
+# NeoMutt can prompt for passwords; no password needs to be stored here.
+# For an existing local-mail/sendmail setup, keep that configuration instead.
+
+# set realname = "Your Name"
+# set from = "you@example.org"
+# set imap_user = "you@example.org"
+# set folder = "imaps://mail.example.org/"
+# set spool_file = "+INBOX"
+# set postponed = "+Drafts"
+# set record = "+Sent"
+# set smtp_url = "smtps://you%40example.org@mail.example.org/"
+# mailboxes "+INBOX" "+Sent" "+Drafts"
+
+# Multiple accounts may live in separate private files, sourced from here.
+# Account-specific hooks, OAuth helpers and keyring commands belong here too.

@@ -1,0 +1,9 @@
+# Presentation only. Accounts, credentials, mailboxes and personal bindings
+# are sourced afterwards by the private loader created by ./install.sh mail.
+source "layout.muttrc"
+source "keys.muttrc"
+source "colours.muttrc"
+
+# Use the existing Neovim configuration and mappings. These options affect
+# only the current mail buffer; no -u, separate config, or editor theme.
+set editor = "nvim '+setlocal filetype=mail wrap textwidth=72' --"

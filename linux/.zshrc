@@ -1,3 +1,15 @@
+# A root login must not inherit a user's plugin/cache paths or executables.
+if (( EUID == 0 )); then
+  export HOME=/root
+  export XDG_CONFIG_HOME=/root/.config XDG_CACHE_HOME=/root/.cache
+  export XDG_DATA_HOME=/root/.local/share XDG_STATE_HOME=/root/.local/state
+  unset ZSH_CUSTOM ZSH_CACHE_DIR ZSH_COMPDUMP ZDOTDIR
+  # Debian system functions only; do not inherit a normal user's FPATH.
+  fpath=(/usr/local/share/zsh/site-functions /usr/share/zsh/vendor-functions
+         /usr/share/zsh/vendor-completions /usr/share/zsh/functions/*(N/))
+  path=(/root/.local/bin /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin)
+fi
+
 # Powerlevel10k instant prompt. Keep it close to the top; anything that asks
 # for input (passwords, y/n) must go above this block.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then

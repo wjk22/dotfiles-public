@@ -19,6 +19,8 @@ The shell configuration lives here; the Neovim configuration has its own repo:
   Saying no to Chocolatey disables its optional apps too.
 - **The old colours are back:** the original 1996 palette now lives in a readable
   `dircolors` file, with matching colours for newer archive, image and video formats.
+- **Optional root and mail setup:** a private root-owned shell snapshot, and a
+  Gruvbox-inspired NeoMutt layout using your existing Neovim composer.
 - **A nicer `cat`:** `cat` and `bcat` use bat in zsh and PowerShell, with syntax
   highlighting and line numbers. Personal aliases and settings live outside the repo.
 
@@ -58,6 +60,11 @@ become the suggestions. `--yes` on Linux and `-Yes` on Windows accept those
 suggestions and apply without asking; they do not mean "enable every step."
 Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
 
+Two optional Linux modes are also available: `./install.sh root` for root's
+shell and `./install.sh mail` for NeoMutt. The plain `./install.sh` still only
+configures your normal account. Both optional modes need Python 3 (standard
+library only) and show a preview before applying; `--yes` accepts the plan.
+
 After installation, open a new zsh or **PowerShell 7** window and run
 `help-dots` for the [command and keyboard cheat sheet](HELP.md).
 In Windows Terminal, select **MesloLGS NF** as the font for the profiles you use.
@@ -92,6 +99,106 @@ The directory palette keeps the original colours: blue directories, cyan
 symlinks, green executables, red archives, magenta images and white videos.
 GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses it too.
 Modern extensions such as `.zst`, `.webp` and `.mp4` follow the same scheme.
+
+### The same shell for root
+
+After the normal Linux setup, run this **as your normal user**, from a clean,
+committed checkout:
+
+```sh
+./install.sh root
+```
+
+The privileged part needs sudo to inspect and write root's home and change root's
+login shell. It shows the destination files before asking for `a` to apply.
+It reuses the shell files and the existing installer's plugin, backup and link
+steps. Root mode does not install packages or fonts: system Git and zsh must
+already be installed; the normal setup supplies the other system tools.
+
+Root's config links point into **`/root/.dotfiles/<commit>/`**, a root-owned
+snapshot of allowlisted, committed regular files, never into your checkout.
+Snapshots use private directories and files. Oh My Zsh, Powerlevel10k and the
+plugins live separately under **`/root/.oh-my-zsh`**, cloned from the same
+upstream repositories as the normal setup. Your personal plugins, aliases,
+credentials and user-local executables are not copied into root's environment.
+
+The receiver starts with a clean environment. It checks ownership, write
+permissions and links in the root paths it uses, rejects links into user homes,
+and keeps existing config backups under `/root/.dotfiles-backup/` and next to
+the originals as timestamped `.bak` files. `/root/.zshrc.local` and
+`/root/.alias.local` are retained and loaded last; these and any existing root
+startup files must be root-owned and not writable by other users. Stale compiled
+`.zwc` versions of managed configs must be moved aside before installation. As with any
+root shell, root's own local overrides and the upstream plugin code are trusted
+code: review them before adding commands that source other files.
+
+Rerun `./install.sh root` after updating this repo to refresh root's snapshot and
+plugins. Unchanged snapshots and config links are kept. A new log is written
+under `/root/.local/state/dotfiles/logs/`; older snapshots remain for recovery.
+Use `sudo -i` after installation to start root's new login shell. Root does not
+need a separate font installation; the terminal renders both sessions.
+
+### NeoMutt and the existing Neovim composer
+
+```sh
+./install.sh mail
+neomutt
+```
+
+The mail mode installs only the `neomutt` package if needed and creates a private
+loader in `~/.config/neomutt/neomuttrc` (honouring `XDG_CONFIG_HOME`). It requires
+an existing `nvim` executable and does not install or change your editor config.
+The current `dotfiles-nvim` setup uses **NeoSolarized dark with a transparent
+background**, Solarized lualine, two-space indentation and a Space leader.
+The mail theme complements it with Gruvbox-inspired warm text and amber,
+muted teal accents and a transparent background. It uses 256 colours and needs
+no theme plugin, sync daemon, indexer or HTML renderer.
+
+Presentation lives in [`linux/neomutt/`](linux/neomutt/): separate layout,
+colours and key files. Threads are grouped with newest activity first, the pager
+keeps a small index visible, and unread, flagged, deleted and quoted text have
+distinct highlighting. Standard Mutt navigation/reply/send/delete keys remain;
+`F2` toggles the sidebar, `F3`/`F4` select a mailbox, and `F5` opens it. The sidebar
+uses the mailboxes you declare in your private account config.
+
+Composing runs your existing `nvim` with mail filetype, wrapping and a 72-column
+text width for that buffer. It does not use `-u`, another Neovim setup or another
+editor theme. Your Neovim mappings and personal overrides continue to apply.
+
+The installation creates three **private files outside Git**:
+
+| File in `~/.config/neomutt/` | Purpose |
+|---|---|
+| `accounts.local` | Accounts, mailboxes, transport and credential-helper settings |
+| `aliases.local` | Saved address aliases |
+| `settings.local` | Personal settings and key overrides, loaded last |
+
+Start with [`accounts.example`](linux/neomutt/accounts.example); its account
+details are commented placeholders. Configure your own account before reading or
+sending mail. NeoMutt can prompt for passwords, so storing passwords is optional.
+The installer creates private files with mode `0600` and a `0700` directory;
+it does not overwrite existing private files. These filenames are also ignored
+by Git as a precaution, but keep actual accounts and secrets outside the repo.
+
+When an existing Mutt/NeoMutt config is found in a standard location, the loader
+sources it after the shared presentation so accounts, handling and shortcuts
+take precedence. A replaced loader gets both a neighbouring `.bak` and a copy
+under `~/.dotfiles-backup/neomutt-<timestamp>/`. Existing config contents are
+neither printed nor executed during installation. Custom `-F` locations and
+version-suffixed configs must be sourced explicitly from `accounts.local` or
+`settings.local`; a version-suffixed NeoMutt config can take precedence over the
+new unversioned loader. Reruns leave unchanged files alone.
+
+This setup has no preconfigured account, OAuth provider or mail-sync service.
+Account-specific setup remains private. Appearance and syntax can be checked
+without contacting mail servers:
+
+```sh
+neomutt -n -F ./linux/neomutt/neomuttrc -Q editor -Q use_threads
+```
+
+See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
+[sidebar guide](https://neomutt.org/feature/sidebar) for the underlying options.
 
 ### Windows
 
@@ -196,10 +303,17 @@ Each applied run has a log, and the final summary prints its location:
 The ten newest installer logs are retained. Failed downloads or packages remain
 visible in the logs even when the rest of a Windows run completes.
 
+Developer checks: `bash -n install.sh` and
+`PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v`.
+Root integration tests require bubblewrap and user namespaces and mount a
+disposable `/root`; they must never be replaced with a live root install.
+Mail tests require NeoMutt (or `NEOMUTT_TEST_BINARY` pointing to a test binary).
+
 ## A little history
 
 - **0.4.2:** configurable Windows packages, simpler installer commands, live
-  package output, Chocolatey failure isolation, the 1996 palette and bat aliases.
+  package output, Chocolatey failure isolation, the 1996 palette, bat aliases,
+  isolated root shell installation and optional NeoMutt presentation.
 - **0.3:** guided installers, modern terminal tools and `help-dots`; Neovim moved
   to its own repository, and Node was removed from the base setup.
 - **0.25:** Windows scripts, fzf and PowerShell line editing.
