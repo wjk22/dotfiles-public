@@ -26,13 +26,22 @@ function Add-LogLine([string]$Text) {
     if ($Log) { Add-Content -LiteralPath $Log -Value $Text -Encoding UTF8 } else { Write-Output $Text }
 }
 
-# Runs a block with all its output in the log; returns the exit code.
+# Runs a block with all its output in the log; returns the exit code. A native
+# command fails by its exit code (its stderr lines are only logged); a cmdlet
+# fails by throwing or by writing an error record.
 function Invoke-Logged([scriptblock]$Block) {
     $global:LASTEXITCODE = 0
+    $script:cmdletFailed = $false
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        if ($Log) { & $Block *>&1 | Out-File -LiteralPath $Log -Append -Encoding utf8 } else { & $Block }
+        $output = & $Block *>&1 | ForEach-Object {
+            if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
+                $script:cmdletFailed = $true
+            }
+            $_
+        }
+        if ($Log) { $output | Out-File -LiteralPath $Log -Append -Encoding utf8 } else { $output | Out-Host }
         $code = $LASTEXITCODE
     } catch {
         Add-LogLine ($_ | Out-String)
@@ -40,6 +49,7 @@ function Invoke-Logged([scriptblock]$Block) {
     } finally {
         $ErrorActionPreference = $previous
     }
+    if ($code -eq 0 -and $script:cmdletFailed) { $code = 1 }
     return $code
 }
 

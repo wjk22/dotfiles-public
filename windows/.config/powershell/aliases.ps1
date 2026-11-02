@@ -1,8 +1,12 @@
 # Aliases and small functions, dot-sourced by user_profile.ps1.
 
-# Unix tools that ship with Git (less, grep, ...), scoop's Git first
+# Unix tools that ship with Git (less, grep, ...), scoop's Git first.
+# Added once, so reloading the profile (. repo) doesn't grow PATH.
 foreach ($gitBin in "$env:USERPROFILE\scoop\apps\git\current\usr\bin", "$env:ProgramFiles\Git\usr\bin") {
-    if (Test-Path $gitBin) { $env:PATH += ";$gitBin"; break }
+    if (Test-Path $gitBin) {
+        if (($env:PATH -split ';') -notcontains $gitBin) { $env:PATH += ";$gitBin" }
+        break
+    }
 }
 
 Set-Alias -Name vim -Value nvim

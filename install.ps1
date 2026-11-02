@@ -74,6 +74,9 @@ if ($env:OS -ne 'Windows_NT') { Stop-Install 'This is not Windows; on Debian or 
 $build = [Environment]::OSVersion.Version.Build
 # Per-user fonts and junctions without admin need Windows 10 1809 or newer.
 if ($build -lt 17763) { Stop-Install "Windows build $build is too old; this needs Windows 10 1809 (17763) or newer." }
+if ($PSVersionTable.PSVersion -lt [version]'5.1') {
+    Stop-Install "PowerShell $($PSVersionTable.PSVersion) is too old; this needs Windows PowerShell 5.1 or PowerShell 7."
+}
 $osName = (Get-CimInstance -ClassName Win32_OperatingSystem).Caption
 Write-Check 'System' "$osName (build $build), PowerShell $($PSVersionTable.PSVersion)"
 
@@ -106,6 +109,19 @@ $haveScoop = Test-Path (Join-Path $scoopRoot 'shims\scoop.ps1')
 Write-Check 'Managers' ('Chocolatey {0}, scoop {1}' -f @(
     $(if ($haveChoco) { 'present' } else { 'missing (installed in step 1)' }),
     $(if ($haveScoop) { 'present' } else { 'missing (installed in step 3)' })))
+
+# Old installs (e.g. git, gsudo, wox from the earlier README) also on Chocolatey:
+# both work, PATH order decides which one runs. Reported only, never removed.
+$overlapIds = @('git', 'git.install', 'git.portable', 'neovim', 'gsudo', 'oh-my-posh', 'wox',
+    'lazygit', 'lazydocker', 'ripgrep', 'fzf', 'fd', 'bat', 'eza', 'zoxide', 'btop', 'dust', 'gdu', 'duf', 'tealdeer')
+$chocoOverlap = @()
+$chocoLib = Join-Path $env:ProgramData 'chocolatey\lib'
+if (Test-Path $chocoLib) {
+    $chocoOverlap = @(Get-ChildItem -LiteralPath $chocoLib -Directory | Where-Object { $overlapIds -contains $_.Name } | ForEach-Object { $_.Name })
+}
+if ($chocoOverlap.Count -gt 0) {
+    Write-Host ('  ! {0,-12} Chocolatey also has {1}; scoop installs these too (not removed, see the end)' -f 'Overlap', ($chocoOverlap -join ' ')) -ForegroundColor Yellow
+}
 
 $systemDrive = Get-PSDrive -Name $env:SystemDrive.TrimEnd(':')
 if ($systemDrive.Free -lt 5GB) {
@@ -168,6 +184,104 @@ $questions = @(
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'set them in Windows Terminal afterwards' },
     @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable' }
 )
+# ------------------------------------------------------- existing config ---
+# Looked at before anything changes: what gets replaced, its .bak, and lines
+# that exist only in the user's copy. Links are renamed, never written through.
+$stamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+$pwshVersion = $null
+$profilePath = $null
+if (Test-Path $pwsh) {
+    try {
+        $pwshVersion = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
+        $profilePath = (& $pwsh -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' | Out-String).Trim()
+    } catch {
+        Stop-Install "$pwsh doesn't answer ($($_.Exception.Message)); repair PowerShell 7 or answer no to steps 4 and 6."
+    }
+}
+$bootstrapFile = Join-Path $repo 'windows\Microsoft.PowerShell_profile.ps1'
+
+function Format-Setting([string]$Line) {
+    # A setting without its value: values can hold paths, tokens or passwords.
+    $i = $Line.IndexOf('=')
+    if ($i -ge 0) { $Line = $Line.Substring(0, $i + 1) + '...' }
+    if ($Line.Length -gt 60) { $Line = $Line.Substring(0, 60) + '...' }
+    return $Line
+}
+# Non-blank, non-comment lines of $UserFile that $RepoFile doesn't have.
+function Get-UserOnlyLine([string]$UserFile, [string]$RepoFile) {
+    $repoLines = @{}
+    if (Test-Path -LiteralPath $RepoFile) { foreach ($l in Get-Content -LiteralPath $RepoFile) { $repoLines[$l.Trim()] = $true } }
+    $n = 0
+    foreach ($l in Get-Content -LiteralPath $UserFile) {
+        $n++
+        $t = $l.Trim()
+        if ($t -and -not $t.StartsWith('#') -and -not $repoLines.ContainsKey($t)) { [pscustomobject]@{ Number = $n; Text = $t } }
+    }
+}
+function Add-LocalNote([string]$Label, [string]$UserFile, [string]$RepoFile, [string]$Kept) {
+    $lines = @(Get-UserOnlyLine $UserFile $RepoFile)
+    if ($lines.Count -eq 0) { return }
+    $numbers = ($lines | Select-Object -First 12 | ForEach-Object { $_.Number }) -join ', '
+    if ($lines.Count -gt 12) { $numbers += ', ...' }
+    $examples = @($lines | Where-Object { $_.Text -match '^(\$env:|Set-Alias|New-Alias|function |\. |Import-Module|Invoke-Expression)' } |
+        Select-Object -First 6 | ForEach-Object { Format-Setting $_.Text })
+    $text = "${Label}: $($lines.Count) line(s) not in the new setup (line $numbers)"
+    if ($examples.Count -gt 0) { $text += ", e.g. $($examples -join '; ')" }
+    $script:localNotes += "$text. $Kept; move what you still need into ~\.config\powershell.local.ps1."
+}
+function Get-ConfigPlan {
+    $script:replacePlan = @(); $script:localNotes = @()
+    $item = Get-Item -LiteralPath $configLink -Force -ErrorAction SilentlyContinue
+    if ($item) {
+        $target = if ($item.LinkType) { @($item.Target)[0] } else { $null }
+        if ($item.LinkType -eq 'Junction' -and $target -and $target.TrimEnd('\') -eq $configSource.TrimEnd('\')) {
+            # already linked to this repo
+        } elseif ($item.LinkType) {
+            $script:replacePlan += "~\.config\powershell ($($item.LinkType) to $target) -> renamed to ~\.config\powershell.$stamp.bak, target untouched"
+        } elseif ($item.PSIsContainer) {
+            $script:replacePlan += "~\.config\powershell (folder) -> backup ~\.config\powershell.$stamp.bak"
+            foreach ($name in 'aliases.ps1', 'user_profile.ps1') {
+                $userFile = Join-Path $configLink $name
+                if (Test-Path -LiteralPath $userFile) {
+                    Add-LocalNote -Label "~\.config\powershell\$name" -UserFile $userFile -RepoFile (Join-Path $configSource $name) -Kept "Kept in ~\.config\powershell.$stamp.bak"
+                }
+            }
+        } else {
+            $script:replacePlan += "~\.config\powershell is a file; move it away first."
+        }
+    }
+    # The old layout kept the aliases outside the folder; the new profile no longer loads them.
+    $oldAliases = Join-Path $env:USERPROFILE '.config\aliases.ps1'
+    if (Test-Path -LiteralPath $oldAliases) {
+        Add-LocalNote -Label '~\.config\aliases.ps1 (old layout, no longer loaded)' -UserFile $oldAliases -RepoFile (Join-Path $configSource 'aliases.ps1') -Kept 'The file stays where it is'
+    }
+    if ($profilePath -and (Test-Path -LiteralPath $profilePath)) {
+        $profileItem = Get-Item -LiteralPath $profilePath -Force
+        if ($profileItem.LinkType) {
+            $script:replacePlan += "`$PROFILE ($($profileItem.LinkType) to $(@($profileItem.Target)[0])) -> renamed to $profilePath.$stamp.bak, target untouched"
+        } elseif ((Get-Content -LiteralPath $profilePath -Raw) -ne (Get-Content -LiteralPath $bootstrapFile -Raw)) {
+            $script:replacePlan += "`$PROFILE $profilePath -> backup $profilePath.$stamp.bak"
+            Add-LocalNote -Label '$PROFILE' -UserFile $profilePath -RepoFile $bootstrapFile -Kept "Kept in $profilePath.$stamp.bak"
+        }
+    }
+}
+$script:replacePlan = @(); $script:localNotes = @()
+Get-ConfigPlan
+function Show-ConfigPlan {
+    if ($answer['config'] -ne 'yes') { return }
+    if ($script:replacePlan.Count -gt 0) {
+        Write-Host ''
+        Write-Host "  Existing config that step 6 replaces (also kept in ~\.dotfiles-backup\$stamp\):"
+        foreach ($entry in $script:replacePlan) { Write-Host "    $entry" }
+    }
+    if ($script:localNotes.Count -gt 0) {
+        Write-Host ''
+        Write-Host '  Check: ' -ForegroundColor Yellow -NoNewline
+        Write-Host 'machine-local settings are not carried over automatically.'
+        foreach ($note in $script:localNotes) { Write-Host "    $note" }
+    }
+}
+
 $answer = @{}
 foreach ($q in $questions) {
     $answer[$q.Key] = 'yes'
@@ -206,8 +320,15 @@ function Test-Plan {
     if ($needsPwsh -and $answer['choco'] -eq 'no' -and -not (Test-Path $pwsh)) {
         return 'PowerShell 7 is missing; answer yes to 1 (Chocolatey) or install it first.'
     }
+    if ($answer['modules'] -eq 'yes' -and $answer['choco'] -eq 'no' -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
+        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); answer yes to 1 to update it."
+    }
     if ($answer['apps'] -eq 'yes' -and $answer['choco'] -eq 'no') {
         return 'The optional apps go through the Chocolatey step; answer yes to 1 as well.'
+    }
+    if ($answer['config'] -eq 'yes') {
+        $blocked = @($script:replacePlan | Where-Object { $_ -like '*move it away first.' })
+        if ($blocked.Count -gt 0) { return $blocked[0] }
     }
     return ''
 }
@@ -217,6 +338,7 @@ while ($true) {
     for ($i = 0; $i -lt $questions.Count; $i++) {
         Write-Host ('  {0}. {1,-52} {2}' -f ($i + 1), $questions[$i].Label, $answer[$questions[$i].Key])
     }
+    Show-ConfigPlan
     $problem = Test-Plan
     if ($problem) {
         Write-Host ''
@@ -245,7 +367,7 @@ if (Test-Path $log) { Stop-Install "Another run is writing $log; wait a second a
 Get-ChildItem -LiteralPath $logDir -Filter 'install-windows-*.log' | Sort-Object Name -Descending |
     Select-Object -Skip 10 | Remove-Item -Force
 
-$backupRoot = Join-Path $env:USERPROFILE ('.dotfiles-backup\' + (Get-Date).ToString('yyyyMMdd-HHmmss'))
+$backupRoot = Join-Path $env:USERPROFILE ".dotfiles-backup\$stamp"
 $script:backupDir = ''
 # Moves (or copies with -Copy) one path into this run's backup.
 function Backup-Item([string]$Path, [switch]$Copy) {
@@ -253,12 +375,36 @@ function Backup-Item([string]$Path, [switch]$Copy) {
     $rel = if ($Path.StartsWith($home_, [StringComparison]::OrdinalIgnoreCase)) { $Path.Substring($home_.Length) } else { $Path.Replace(':', '') }
     $script:backupDir = $backupRoot
     $dest = Join-Path $backupRoot $rel
-    New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force | Out-Null
-    if ($Copy) { Copy-Item -LiteralPath $Path -Destination $dest -Recurse -Force } else { Move-Item -LiteralPath $Path -Destination $dest }
+    if (Test-Path -LiteralPath $dest) { Stop-Step "$dest already exists; not overwriting a backup." }
+    try {
+        New-Item -ItemType Directory -Path (Split-Path -Parent $dest) -Force -ErrorAction Stop | Out-Null
+        if ($Copy) { Copy-Item -LiteralPath $Path -Destination $dest -Recurse -ErrorAction Stop }
+        else { Move-Item -LiteralPath $Path -Destination $dest -ErrorAction Stop }
+    } catch {
+        Stop-Step "Backup of $Path failed ($($_.Exception.Message)); nothing was replaced."
+    }
     Add-Content -LiteralPath $log -Value "backup: $Path -> $dest" -Encoding UTF8
+}
+# The original next to itself as <path>.<stamp>.bak, before anything changes.
+# A link is renamed (the link itself, never its target); a file or folder is copied.
+function Save-Bak([string]$Path) {
+    $bak = "$Path.$stamp.bak"
+    if (Test-Path -LiteralPath $bak) { Stop-Step "$bak already exists; not overwriting a backup." }
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        if ($item.LinkType) { Rename-Item -LiteralPath $Path -NewName (Split-Path -Leaf $bak) -ErrorAction Stop }
+        else { Copy-Item -LiteralPath $Path -Destination $bak -Recurse -ErrorAction Stop }
+    } catch {
+        Stop-Step "Backup of $Path failed ($($_.Exception.Message)); nothing was replaced."
+    }
+    Add-Content -LiteralPath $log -Value "bak: $Path -> $bak" -Encoding UTF8
+    $script:replaced.Add("$Path -> $bak")
+    return [bool]$item.LinkType
 }
 
 $changes = New-Object System.Collections.Generic.List[string]
+$warnings = New-Object System.Collections.Generic.List[string]
+$script:replaced = New-Object System.Collections.Generic.List[string]
 
 # ------------------------------------------------------------------ steps ---
 $script:stepName = ''
@@ -272,6 +418,8 @@ function Start-Step([string]$Name, [string]$Detail) {
 function Clear-StepLine {
     $width = 120
     try { $width = [Console]::WindowWidth - 1 } catch { $width = 120 }
+    # No console window (output redirected): WindowWidth is 0.
+    if ($width -lt 1) { $width = 120 }
     Write-Host ("`r" + (' ' * $width) + "`r") -NoNewline
 }
 function Complete-Step([string]$Result) {
@@ -290,13 +438,21 @@ function Stop-Step([string]$Text) {
     if ($script:backupDir) { Write-Host "  Backups: $($script:backupDir)" }
     exit 1
 }
-# Runs a block with all its output in the log; stops the install on failure.
-function Invoke-Logged([scriptblock]$Block, [string]$What) {
+# Runs a block with all its output in the log and returns its exit code. A
+# native command fails by its exit code (its stderr lines are only logged); a
+# cmdlet fails by throwing or by writing an error record.
+function Invoke-LoggedCode([scriptblock]$Block) {
     $global:LASTEXITCODE = 0
+    $script:cmdletFailed = $false
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        & $Block *>&1 | Out-File -LiteralPath $log -Append -Encoding utf8
+        & $Block *>&1 | ForEach-Object {
+            if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
+                $script:cmdletFailed = $true
+            }
+            $_
+        } | Out-File -LiteralPath $log -Append -Encoding utf8
         $code = $LASTEXITCODE
     } catch {
         $_ | Out-String | Out-File -LiteralPath $log -Append -Encoding utf8
@@ -304,6 +460,12 @@ function Invoke-Logged([scriptblock]$Block, [string]$What) {
     } finally {
         $ErrorActionPreference = $previous
     }
+    if ($code -eq 0 -and $script:cmdletFailed) { $code = 1 }
+    return $code
+}
+# Stops the install on failure.
+function Invoke-Logged([scriptblock]$Block, [string]$What) {
+    $code = Invoke-LoggedCode $Block
     if ($code -ne 0) { Stop-Step "Install stopped: $What failed." }
 }
 
@@ -364,7 +526,10 @@ if ($answer['scoop'] -eq 'yes') {
     $updatedApps = @([regex]::Matches($tail, "Updating '([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
     if ($updatedApps.Count -gt 0) { $scoopDone += ($updatedApps | ForEach-Object { "$_ (updated)" }) }
     # tealdeer needs its page cache once; later updates are tldr --update.
-    if ($missing -contains 'tealdeer') { Invoke-Logged { tldr --update } 'tldr --update'; $scoopDone += 'tldr pages' }
+    if ($missing -contains 'tealdeer') {
+        if ((Invoke-LoggedCode { tldr --update }) -eq 0) { $scoopDone += 'tldr pages' }
+        else { $warnings.Add('tldr --update failed (network?); run it later, tldr works without pages until then.') }
+    }
     if ($scoopDone.Count -eq 0) {
         Complete-Step "all $($scoopApps.Count) installed, up to date"
     } else {
@@ -376,6 +541,8 @@ if ($answer['scoop'] -eq 'yes') {
 if ($answer['modules'] -eq 'yes') {
     Start-Step 'Modules' ($modules -join ' ')
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
+    $pwshNow = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
+    if ($pwshNow -lt [version]'7.4') { Stop-Step "PowerShell $pwshNow is too old for PSResourceGet (needs 7.4+); update it with step 1." }
     # Runs in pwsh: modules installed from Windows PowerShell land where pwsh doesn't look.
     $moduleScript = @"
 `$ErrorActionPreference = 'Stop'
@@ -472,7 +639,11 @@ if ($answer['config'] -eq 'yes') {
             }
         }
         if (-not $copyIsCurrent) {
-            if ($item) { Backup-Item $configLink }
+            if ($item) {
+                # A link is renamed to its .bak; a folder is copied there, then moved to the backup folder.
+                $wasLink = Save-Bak $configLink
+                if (-not $wasLink) { Backup-Item $configLink }
+            }
             New-Item -ItemType Directory -Path (Split-Path -Parent $configLink) -Force | Out-Null
             $junctionMade = $false
             if (-not $onNetworkPath) {
@@ -496,9 +667,14 @@ if ($answer['config'] -eq 'yes') {
     $profilePath = (& $pwsh -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' | Out-String).Trim()
     if (-not $profilePath) { Stop-Step 'Could not read $PROFILE from pwsh.' }
     $bootstrap = Get-Content -LiteralPath (Join-Path $repo 'windows\Microsoft.PowerShell_profile.ps1') -Raw
-    $current = if (Test-Path $profilePath) { Get-Content -LiteralPath $profilePath -Raw } else { $null }
-    if ($current -ne $bootstrap) {
-        if ($null -ne $current) { Backup-Item $profilePath -Copy }
+    $profileItem = Get-Item -LiteralPath $profilePath -Force -ErrorAction SilentlyContinue
+    $current = if ($profileItem -and -not $profileItem.LinkType) { Get-Content -LiteralPath $profilePath -Raw } else { $null }
+    # A linked $PROFILE is replaced too, so nothing is ever written through the link.
+    if (($profileItem -and $profileItem.LinkType) -or $current -ne $bootstrap) {
+        if ($profileItem) {
+            $wasLink = Save-Bak $profilePath
+            if (-not $wasLink) { Backup-Item $profilePath -Copy }
+        }
         New-Item -ItemType Directory -Path (Split-Path -Parent $profilePath) -Force | Out-Null
         [IO.File]::WriteAllText($profilePath, $bootstrap)
         $configDone += "`$PROFILE $profilePath"
@@ -533,6 +709,23 @@ if ($changes.Count -eq 0) {
 } else {
     Write-Host '  Changed:'
     foreach ($change in $changes) { Write-Host "    $change" }
+}
+if ($script:replaced.Count -gt 0) {
+    Write-Host '  Replaced config (originals kept):'
+    foreach ($entry in $script:replaced) { Write-Host "    $entry" }
+}
+if ($answer['config'] -eq 'yes' -and $script:localNotes.Count -gt 0) {
+    Write-Host '  Check: ' -ForegroundColor Yellow -NoNewline
+    Write-Host 'machine-local settings are not carried over automatically.'
+    foreach ($note in $script:localNotes) { Write-Host "    $note" }
+}
+if ($chocoOverlap.Count -gt 0) {
+    Write-Host "  Also on Chocolatey: $($chocoOverlap -join ' '). Windows puts the system PATH first, so those copies win over scoop's."
+    Write-Host "    Nothing was removed; if you want scoop's: gsudo choco uninstall $($chocoOverlap -join ' ')"
+}
+if ($warnings.Count -gt 0) {
+    Write-Host '  Warnings:'
+    foreach ($warning in $warnings) { Write-Host "    $warning" }
 }
 if ((Get-Variable -Name unusedModules -ErrorAction SilentlyContinue) -and $unusedModules.Count -gt 0) {
     Write-Host "  No longer used: $($unusedModules -join ', ') (pwsh: Uninstall-Module $($unusedModules -join ', '))"
