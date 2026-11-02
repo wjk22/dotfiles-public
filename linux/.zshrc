@@ -33,7 +33,10 @@ path=("$HOME/.local/bin" $path)
 
 source ~/.alias
 
-eval "$(dircolors ~/.dir_colors)"
+# Keep the 1996 palette in one data file; do not overwrite it with /etc defaults.
+if (( $+commands[dircolors] )) && [[ -r ~/.dir_colors ]]; then
+  eval "$(dircolors -b ~/.dir_colors)"
+fi
 zstyle ':completion:*:default' list-colors "${(s.:.)LS_COLORS}"
 
 # Put personal settings (PATH additions, tokens, ...) in ~/.zshrc.local.
