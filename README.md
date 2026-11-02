@@ -42,8 +42,9 @@ dust, gdu, duf, tealdeer (and inxi on Linux).
 
 2. Run `.\install.ps1 windows` as your normal user. It does:
    - [Chocolatey](https://chocolatey.org/) for the system installs, with one UAC prompt (your admin account):
-     PowerShell 7, Everything, Total Commander, PSWindowsUpdate, and if you want the apps:
-     ditto imageglass googlechrome firefox openvpn potplayer systeminformer vscode vlc python3 seafile-client netlimiter
+     PowerShell 7, Everything, Total Commander, OpenVPN, NetLimiter, PSWindowsUpdate, and if you want the apps:
+     ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client
+     Answering no to Chocolatey skips all its installs and the optional-apps question.
    - [scoop](https://scoop.sh/) for everything that works per user: git, neovim, gsudo,
      [oh-my-posh](https://ohmyposh.dev/), wox and the tools above
    - PSReadLine, [Terminal Icons](https://github.com/devblackops/Terminal-Icons) and PSFzf for PowerShell 7

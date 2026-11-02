@@ -18,15 +18,15 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$systemPackages = @('powershell-core', 'everything', 'totalcommander')
-$appPackages = @('ditto', 'imageglass', 'googlechrome', 'firefox', 'openvpn', 'potplayer',
-    'systeminformer', 'vscode', 'vlc', 'python3', 'seafile-client', 'netlimiter')
+$systemPackages = @('powershell-core', 'everything', 'totalcommander', 'openvpn', 'netlimiter')
+$appPackages = @('ditto', 'imageglass', 'googlechrome', 'firefox', 'potplayer',
+    'systeminformer', 'vscode', 'vlc', 'python3', 'seafile-client')
 
 function Add-LogLine([string]$Text) {
     if ($Log) { Add-Content -LiteralPath $Log -Value $Text -Encoding UTF8 } else { Write-Output $Text }
 }
 
-# Runs a block with all its output in the log; returns the exit code. A native
+# Streams a block's output to the console and log; returns the exit code. A native
 # command fails by its exit code (its stderr lines are only logged); a cmdlet
 # fails by throwing or by writing an error record.
 function Invoke-Logged([scriptblock]$Block) {
@@ -35,16 +35,17 @@ function Invoke-Logged([scriptblock]$Block) {
     $previous = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     try {
-        $output = & $Block *>&1 | ForEach-Object {
+        & $Block *>&1 | ForEach-Object {
             if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
                 $script:cmdletFailed = $true
             }
-            $_
+            if ($Log) { $_ | Out-File -LiteralPath $Log -Append -Encoding utf8 }
+            $_ | Out-Host
         }
-        if ($Log) { $output | Out-File -LiteralPath $Log -Append -Encoding utf8 } else { $output | Out-Host }
         $code = $LASTEXITCODE
     } catch {
         Add-LogLine ($_ | Out-String)
+        if ($Log) { $_ | Out-Host }
         $code = 1
     } finally {
         $ErrorActionPreference = $previous
@@ -84,7 +85,7 @@ if (-not (Test-Path $choco)) {
 $packages = $systemPackages
 if ($Apps) { $packages += $appPackages }
 # upgrade installs what's missing and updates what's outdated.
-$code = Invoke-Logged { & $choco upgrade $packages -y --no-progress }
+$code = Invoke-Logged { & $choco upgrade $packages -y }
 # 1641 and 3010: done, a reboot is needed.
 if (@(0, 1641, 3010) -notcontains $code) { Stop-Admin "choco upgrade failed (exit $code)." }
 if ($Log) {

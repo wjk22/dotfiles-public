@@ -159,8 +159,8 @@ if (-not $oldCommit) {
 }
 
 # -------------------------------------------------------------- questions ---
-$systemPackages = 'powershell-core everything totalcommander'
-$appPackages = 'ditto imageglass googlechrome firefox openvpn potplayer systeminformer vscode vlc python3 seafile-client netlimiter'
+$systemPackages = 'powershell-core everything totalcommander openvpn netlimiter'
+$appPackages = 'ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client'
 # The tool set is the same as on Linux (minus inxi); extras has lazygit and wox.
 $scoopApps = @('git', 'neovim', 'gsudo', 'oh-my-posh', 'wox',
     'lazygit', 'lazydocker', 'ripgrep', 'fzf', 'fd', 'bat', 'eza', 'zoxide', 'btop', 'dust', 'gdu', 'duf', 'tealdeer')
@@ -177,7 +177,7 @@ $configLink = Join-Path $env:USERPROFILE '.config\powershell'
 $configSource = Join-Path $repo 'windows\.config\powershell'
 
 $questions = @(
-    @{ Key = 'choco'; Label = 'System apps via Chocolatey (one UAC prompt)'; Detail = "$systemPackages, PSWindowsUpdate module" },
+    @{ Key = 'choco'; Label = 'Use Chocolatey for system apps (one UAC prompt)'; Detail = "$systemPackages, PSWindowsUpdate module; no skips all Chocolatey installs" },
     @{ Key = 'apps'; Label = 'Optional apps via Chocolatey (same UAC prompt)'; Detail = $appPackages },
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
@@ -338,6 +338,10 @@ if (-not $Yes) {
     Write-Host ''
     for ($i = 0; $i -lt $questions.Count; $i++) {
         $q = $questions[$i]
+        if ($q.Key -eq 'apps' -and $answer['choco'] -eq 'no') {
+            $answer['apps'] = 'no'
+            continue
+        }
         Write-Host ('  {0}. {1}' -f ($i + 1), $q.Label)
         Write-Host ('     {0}' -f $q.Detail)
         while ($true) {
@@ -360,9 +364,6 @@ function Test-Plan {
     if ($answer['modules'] -eq 'yes' -and $answer['choco'] -eq 'no' -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
         return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); answer yes to 1 to update it."
     }
-    if ($answer['apps'] -eq 'yes' -and $answer['choco'] -eq 'no') {
-        return 'The optional apps go through the Chocolatey step; answer yes to 1 as well.'
-    }
     # Backups never go through a link.
     $backupParent = Get-Item -LiteralPath (Join-Path $env:USERPROFILE '.dotfiles-backup') -Force -ErrorAction SilentlyContinue
     if ($backupParent -and ($backupParent.LinkType -or -not $backupParent.PSIsContainer)) {
@@ -376,6 +377,8 @@ function Test-Plan {
 }
 
 while ($true) {
+    # Declining Chocolatey also disables its optional apps, including saved answers.
+    if ($answer['choco'] -eq 'no') { $answer['apps'] = 'no' }
     Write-Host ''
     for ($i = 0; $i -lt $questions.Count; $i++) {
         Write-Host ('  {0}. {1,-52} {2}' -f ($i + 1), $questions[$i].Label, $answer[$questions[$i].Key])
@@ -396,6 +399,10 @@ while ($true) {
     if ($reply -match '^q$') { Write-Host ''; Write-Host '  Nothing was changed.'; exit 0 }
     if ($reply -match '^[1-9]$' -and [int]$reply -le $questions.Count) {
         $key = $questions[[int]$reply - 1].Key
+        if ($key -eq 'apps' -and $answer['choco'] -eq 'no') {
+            Write-Host '  Optional apps are skipped because Chocolatey is disabled.'
+            continue
+        }
         $answer[$key] = if ($answer[$key] -eq 'yes') { 'no' } else { 'yes' }
     }
 }
@@ -457,7 +464,7 @@ function Start-Step([string]$Name, [string]$Detail) {
     $script:stepName = $Name
     $script:stepStarted = Get-Date
     Add-Content -LiteralPath $log -Value "`r`n--- $Name ---" -Encoding UTF8
-    Write-Host ('  .. {0,-12} {1}' -f $Name, $Detail) -NoNewline
+    Write-Host ('  .. {0,-12} {1}' -f $Name, $Detail)
 }
 function Clear-StepLine {
     $width = 120
@@ -482,7 +489,7 @@ function Stop-Step([string]$Text) {
     if ($script:backupDir) { Write-Host "  Backups: $($script:backupDir)" }
     exit 1
 }
-# Runs a block with all its output in the log and returns its exit code. A
+# Streams a block's output to the console and log and returns its exit code. A
 # native command fails by its exit code (its stderr lines are only logged); a
 # cmdlet fails by throwing or by writing an error record.
 function Invoke-LoggedCode([scriptblock]$Block) {
@@ -495,11 +502,13 @@ function Invoke-LoggedCode([scriptblock]$Block) {
             if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
                 $script:cmdletFailed = $true
             }
-            $_
-        } | Out-File -LiteralPath $log -Append -Encoding utf8
+            $_ | Out-File -LiteralPath $log -Append -Encoding utf8
+            $_ | Out-Host
+        }
         $code = $LASTEXITCODE
     } catch {
         $_ | Out-String | Out-File -LiteralPath $log -Append -Encoding utf8
+        $_ | Out-Host
         $code = 1
     } finally {
         $ErrorActionPreference = $previous
