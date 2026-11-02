@@ -1,15 +1,29 @@
-#Edit aliases
+# Editor: nvim when it's there, vi otherwise
+if command -v nvim >/dev/null; then
+  alias vim='nvim'
+  alias vi='nvim'
+  alias v='nvim'
+else
+  alias v='vi'
+fi
+alias evi='v ~/.config/nvim'
+
+# Edit aliases
 alias eal='v ~/.alias ; source ~/.alias'
 
-#Listings
-alias el='exa -l'
-alias es='exa'
-alias esa='exa -la'
+# Debian's names for bat and fd
+command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
+command -v fd >/dev/null || { command -v fdfind >/dev/null && alias fd='fdfind'; }
+
+# Listings
+alias el='eza -l'
+alias es='eza'
+alias esa='eza -la'
 alias lla='lsa -la'
 alias ll='ls -l'
 alias lt='du -sh * | sort -h'
 
-#Other 
+# Other
 alias g=git
 alias c=clear
 alias k='kill -9'
@@ -20,13 +34,23 @@ alias h='history'
 alias hh='history 10'
 alias df='df -h'
 alias du='du -h'
-alias cpv='rsync -ah --info --progress'
+alias cpv='rsync -ah --info=progress2'
 
-#network
-alias ports='netstat -tulanp'
+# Network
+alias ports='ss -tulanp'
 
-#neovim
-alias vim='nvim'
-alias vi='nvim'
-alias v='nvim'
-alias evi='v ~/.config/nvim/init.vim'
+# Cheat sheet for this setup
+help-dots() {
+  local viewer
+  # $commands sees real programs only; command -v would also match the bat alias.
+  for viewer in bat batcat; do
+    if (( $+commands[$viewer] )); then
+      "$viewer" --style=plain --language=markdown --paging=always "$DOTFILES/HELP.md"
+      return
+    fi
+  done
+  less "$DOTFILES/HELP.md"
+}
+
+# Machine-local aliases: never in the repo.
+[[ ! -r ~/.alias.local ]] || source ~/.alias.local

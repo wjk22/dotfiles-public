@@ -1,0 +1,511 @@
+#!/usr/bin/env bash
+# Install or update the dotfiles on Debian (also in WSL). Safe to run again:
+# it asks first, changes only what differs and backs up what it replaces.
+#   ./install.sh linux [--yes]
+set -euo pipefail
+
+repo=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+started=$(date +%s)
+
+usage() {
+    cat <<'EOF'
+Usage: ./install.sh TARGET [--yes]
+
+  linux     Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
+            tmux, fonts and the dotfiles from linux/
+  windows   Windows 10/11: run .\install.ps1 windows in PowerShell instead
+
+  --yes     accept every suggested answer and apply without asking
+EOF
+}
+
+target=''; assume_yes=no
+for arg in "$@"; do
+    case $arg in
+        --yes|-y) assume_yes=yes ;;
+        -h|--help) usage; exit 0 ;;
+        -*) usage >&2; exit 2 ;;
+        *) if [ -n "$target" ]; then usage >&2; exit 2; fi; target=$arg ;;
+    esac
+done
+case $target in
+    linux) ;;
+    windows) echo 'The windows target runs on Windows: open PowerShell in this folder and run .\install.ps1 windows' >&2; exit 2 ;;
+    *) usage >&2; exit 2 ;;
+esac
+
+# ---------------------------------------------------------------- output ---
+ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''; frames="| / - \\"
+title='dotfiles - install linux'
+if [ -t 1 ]; then
+    case $(locale charmap 2>/dev/null || true) in
+        UTF-8|utf8|UTF8) ok='✓'; failed='✗'; arrow='→'; title='🐇 dotfiles · install linux'; frames='⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏' ;;
+    esac
+    if [ -z "${NO_COLOR+x}" ]; then
+        green=$(printf '\033[32m'); red=$(printf '\033[31m'); bold=$(printf '\033[1m'); reset=$(printf '\033[0m')
+    fi
+fi
+
+die() { printf '  %s%s%s %s\n' "$red" "$failed" "$reset" "$1" >&2; exit 1; }
+check_ok() { printf '  %s%s%s %-12s %s\n' "$green" "$ok" "$reset" "$1" "$2"; }
+duration() {
+    awk -v seconds="$1" 'BEGIN {if (seconds >= 60) printf "%dm %ds", seconds/60, seconds%60; else printf "%ds", seconds}'
+}
+
+# ---------------------------------------------------------------- checks ---
+# Nothing is written before these pass, not even the log.
+printf '\n%s%s%s\n\n' "$bold" "$title" "$reset"
+
+[ "$(uname -s)" = Linux ] || die 'This is not Linux; on Windows run .\install.ps1 windows in PowerShell.'
+[ -r /etc/os-release ] || die 'Cannot read /etc/os-release, so this does not look like Debian.'
+# shellcheck source=/dev/null
+IFS='|' read -r os_id os_version os_name < <(. /etc/os-release; printf '%s|%s|%s\n' "${ID:-}" "${VERSION_ID:-}" "${PRETTY_NAME:-${ID:-}}")
+[ "$os_id" = debian ] || die "This installer is for Debian; this system is $os_name."
+# Testing and sid have no VERSION_ID. eza and lazygit need trixie (13) or newer.
+if [ -n "$os_version" ] && [ "${os_version%%.*}" -lt 13 ]; then
+    die "Debian $os_version is too old; eza and lazygit need Debian 13 (trixie) or newer."
+fi
+wsl=no
+if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ] || grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then wsl=yes; fi
+check_ok System "$os_name$([ "$wsl" = yes ] && printf ' (WSL)')"
+
+[ "$(id -u)" -ne 0 ] || die 'Run this as your normal user, not as root; it uses sudo where it needs to.'
+command -v sudo >/dev/null || die "sudo is missing; as root run: apt install sudo && adduser $(id -un) sudo, then log in again."
+command -v git >/dev/null || die 'git is missing; run: sudo apt install git'
+check_ok User "$(id -un), sudo and git present"
+
+dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a git checkout; clone the repo and run it from there."
+[ -z "$dirty" ] || die "The repo has uncommitted changes; commit or stash them first ($(printf '%s\n' "$dirty" | awk '{print $2}' | paste -sd ' ' -))."
+new_commit=$(git -C "$repo" rev-parse HEAD)
+check_ok Repo "clean at ${new_commit:0:7}"
+
+free_kb=$(df -Pk "$HOME" | awk 'NR==2 {print $4}')
+[ "${free_kb:-0}" -ge 1000000 ] || die "Only $((${free_kb:-0} / 1000)) MB free in $HOME; the install needs at least 1 GB."
+check_ok Disk "$(awk -v k="$free_kb" 'BEGIN {printf "%.1f GB free", k*1024/1e9}')"
+
+# ----------------------------------------------------------------- state ---
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles
+state_file=$state_dir/linux.state
+state() { [ -r "$state_file" ] && sed -n "s/^$1=//p" "$state_file" | tail -n 1; }
+
+old_commit=$(state commit || true)
+printf '\n'
+if [ -z "$old_commit" ]; then
+    printf '  %s %s %s\n' 'not installed yet' "$arrow" "${new_commit:0:7}"
+elif [ "$old_commit" = "$new_commit" ]; then
+    printf '  %s, nothing new in this checkout\n' "${new_commit:0:7}"
+else
+    printf '  %s %s %s' "${old_commit:0:7}" "$arrow" "${new_commit:0:7}"
+    if git -C "$repo" merge-base --is-ancestor "$old_commit" "$new_commit" 2>/dev/null; then
+        count=$(git -C "$repo" rev-list --count "$old_commit..$new_commit")
+        if [ "$count" = 1 ]; then printf ' - 1 new commit'; else printf ' - %s new commits' "$count"; fi
+    fi
+    printf '\n'
+fi
+
+# ------------------------------------------------------------- questions ---
+base_packages=(zsh tmux git curl wget ca-certificates neovim htop mc mtr-tiny tcpdump iptraf-ng
+    bind9-dnsutils rsync unzip iproute2 sl)
+# The tool set, the same on Windows (scoop); lazydocker isn't in Debian.
+tool_packages=(lazygit ripgrep fzf fd-find bat eza zoxide btop du-dust gdu duf tealdeer inxi)
+lazydocker_version=0.25.2
+declare -A lazydocker_sha256=(
+    [x86_64]=0d9dbfc26068b218e7ed84b104748cadc6e3cf733c0afd35465306fb39b9523c
+    [arm64]=005c38b685aaa557e7d646d83a3dadb5024340eeed8c6a2e1949eee6f530de23
+)
+fonts_url=https://github.com/romkatv/powerlevel10k-media/raw/145eb9fbc2f42ee408dacd9b22d8e6e0e553f83d
+declare -A font_sha256=(
+    ['MesloLGS NF Regular.ttf']=d97946186e97f8d7c0139e8983abf40a1d2d086924f2c5dbf1c29bd8f2c6e57d
+    ['MesloLGS NF Bold.ttf']=b6c0199cf7c7483c8343ea020658925e6de0aeb318b89908152fcb4d19226003
+    ['MesloLGS NF Italic.ttf']=6f357bcbe2597704e157a915625928bca38364a89c22a4ac36e7a116dcd392ef
+    ['MesloLGS NF Bold Italic.ttf']=56b4131adecec052c4b324efb818dd326d586dbc316fc68f98f1cae2eb8d1220
+)
+# Repo file (under linux/) -> place in $HOME
+links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf)
+
+# shellcheck disable=SC2088 # a label, not a path
+link_list=$(printf '~/%s ' "${links[@]}")
+
+keys=(packages ohmyzsh shell fonts links)
+labels=(
+    'Packages and tools (apt, lazydocker from GitHub)'
+    'oh-my-zsh, plugins and p10k (install or update)'
+    'zsh as login shell'
+    'MesloLGS NF fonts'
+    'Link the dotfiles (backup first)'
+)
+details=(
+    "${base_packages[*]} ${tool_packages[*]}; lazydocker $lazydocker_version (checksum-checked)"
+    'ohmyzsh, zsh-autosuggestions, zsh-syntax-highlighting, powerlevel10k'
+    "chsh to $(command -v zsh || echo /usr/bin/zsh)"
+    "$([ "$wsl" = yes ] && echo 'WSL: Windows Terminal uses Windows fonts, install.ps1 installs those' || echo 'into ~/.local/share/fonts')"
+    "$link_list"
+)
+declare -A answer
+for key in "${keys[@]}"; do answer[$key]=yes; done
+[ "$wsl" = no ] || answer[fonts]=no
+for key in "${keys[@]}"; do
+    previous=$(state "$key" || true)
+    case $previous in yes|no) answer[$key]=$previous ;; esac
+done
+
+yn() { if [ "$1" = yes ]; then printf 'Y/n'; else printf 'y/N'; fi; }
+
+if [ "$assume_yes" = no ]; then
+    [ -t 0 ] || die 'No terminal to ask questions on; run it in a terminal or add --yes.'
+    printf '\n  Enter accepts the suggestion in brackets, q quits.\n\n'
+    for i in "${!keys[@]}"; do
+        key=${keys[$i]}
+        printf '  %d. %s\n     %s\n' "$((i + 1))" "${labels[$i]}" "${details[$i]}"
+        while :; do
+            printf '     [%s] ' "$(yn "${answer[$key]}")"
+            IFS= read -r reply || die 'Input ended; nothing was changed.'
+            case $reply in
+                '') break ;;
+                [Yy]|[Yy]es) answer[$key]=yes; break ;;
+                [Nn]|[Nn]o) answer[$key]=no; break ;;
+                [Qq]) printf '\n  Nothing was changed.\n'; exit 0 ;;
+            esac
+        done
+    done
+fi
+
+# A plan that would fail half-way is refused before anything changes.
+validate() {
+    if [ "${answer[packages]}" = no ]; then
+        for tool in curl zsh; do
+            if ! command -v "$tool" >/dev/null; then
+                case $tool in
+                    curl) [ "${answer[fonts]}" = no ] && continue ;;
+                    zsh) [ "${answer[shell]}" = no ] && continue ;;
+                esac
+                echo "$tool is missing; answer yes to 1 (core packages) or install it first."; return
+            fi
+        done
+    fi
+}
+
+summary() {
+    printf '\n'
+    for i in "${!keys[@]}"; do
+        printf '  %d. %-52s %s\n' "$((i + 1))" "${labels[$i]}" "${answer[${keys[$i]}]}"
+    done
+}
+
+while :; do
+    summary
+    problem=$(validate)
+    if [ -n "$problem" ]; then
+        printf '\n  %s%s%s %s\n' "$red" "$failed" "$reset" "$problem"
+        [ "$assume_yes" = no ] || exit 1
+    elif [ "$assume_yes" = yes ]; then
+        break
+    fi
+    printf '\n  Number to change, a to apply, q to quit: '
+    IFS= read -r reply || die 'Input ended; nothing was changed.'
+    case $reply in
+        a|A) [ -z "$problem" ] && break ;;
+        q|Q) printf '\n  Nothing was changed.\n'; exit 0 ;;
+        [1-9])
+            if [ "$reply" -le "${#keys[@]}" ]; then
+                key=${keys[$((reply - 1))]}
+                if [ "${answer[$key]}" = yes ]; then answer[$key]=no; else answer[$key]=yes; fi
+            fi ;;
+    esac
+done
+
+# --------------------------------------------------------------- planning ---
+missing_packages() {
+    local package
+    for package in "$@"; do
+        dpkg-query -W -f='${db:Status-Status}' "$package" 2>/dev/null | grep -qx installed || printf '%s\n' "$package"
+    done
+}
+want_packages=(); want_fontconfig=()
+[ "${answer[packages]}" = no ] || mapfile -t want_packages < <(missing_packages "${base_packages[@]}" "${tool_packages[@]}")
+[ "${answer[fonts]}" = no ] || mapfile -t want_fontconfig < <(missing_packages fontconfig)
+login_shell=$(getent passwd "$(id -un)" | cut -d: -f7)
+
+need_sudo=no
+[ "${#want_packages[@]}${#want_fontconfig[@]}" = 00 ] || need_sudo=yes
+if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then need_sudo=yes; fi
+if [ "$need_sudo" = yes ]; then
+    printf '\n'
+    sudo -v || die 'sudo did not work; your user needs sudo rights for packages and the login shell.'
+fi
+
+# ------------------------------------------------------------------- log ---
+umask 022
+mkdir -p "$state_dir/logs"
+log="$state_dir/logs/install-linux-$(date -u +%Y%m%dT%H%M%SZ).log"
+(set -C; : > "$log") || exit 1
+chmod 600 "$log"
+find "$state_dir/logs" -maxdepth 1 -type f -name 'install-linux-*.log' | LC_ALL=C sort -r | sed '1,10d' |
+    while IFS= read -r old_log; do rm -f -- "$old_log"; done
+printf 'dotfiles install linux, %s, %s\n' "$(date -u +%FT%TZ)" "$new_commit" >> "$log"
+
+backup_dir=''
+backup_root=$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)
+backup() {
+    # Moves (or copies with "copy") one path under $HOME into this run's backup.
+    local path=$1 mode=${2:-move} rel
+    rel=${path#"$HOME"/}
+    backup_dir=$backup_root
+    mkdir -p "$backup_dir/$(dirname -- "$rel")"
+    if [ "$mode" = copy ]; then cp -a -- "$path" "$backup_dir/$rel"; else mv -- "$path" "$backup_dir/$rel"; fi
+    printf 'backup: %s -> %s\n' "$path" "$backup_dir/$rel" >> "$log"
+}
+
+changes=()
+
+# ----------------------------------------------------------------- steps ---
+spinner_pid=''; command_pid=''; step_name=''
+stop_spinner() {
+    if [ -n "$spinner_pid" ]; then
+        kill "$spinner_pid" 2>/dev/null || true
+        wait "$spinner_pid" 2>/dev/null || true
+        spinner_pid=''
+        printf '\r\033[2K'
+    fi
+}
+spin() {
+    trap 'exit 0' HUP INT TERM
+    while :; do
+        for frame in $frames; do
+            printf '\r  %s%s%s %-12s %s (%s)' "$green" "$frame" "$reset" "$step_name" "$step_detail" "$(duration "$(($(date +%s) - step_started))")"
+            sleep 0.1
+        done
+    done
+}
+step() {
+    step_name=$1; step_detail=$2
+    printf '\n--- %s ---\n' "$1" >> "$log"
+    step_started=$(date +%s)
+    if [ -t 1 ]; then spin & spinner_pid=$!; else printf '  %-12s %s\n' "$1" "$2"; fi
+}
+passed() {
+    stop_spinner
+    printf '  %s%s%s %-12s %s (%s)\n' "$green" "$ok" "$reset" "$step_name" "$1" "$(duration "$(($(date +%s) - step_started))")"
+    step_name=''
+}
+show_error() {
+    stop_spinner
+    printf '  %s%s%s %-12s %s (%s)\n' "$red" "$failed" "$reset" "${step_name:-Install}" "$1" "$(duration "$(($(date +%s) - ${step_started:-$started}))")" >&2
+    tail -n 30 "$log" >&2
+    printf '\n  Log: %s\n' "$log" >&2
+    [ -z "$backup_dir" ] || printf '  Backups: %s\n' "$backup_dir" >&2
+    step_name=''
+}
+interrupt() {
+    if [ -n "$command_pid" ]; then kill "$command_pid" 2>/dev/null || true; wait "$command_pid" 2>/dev/null || true; fi
+    show_error 'Install interrupted.'
+    exit "$1"
+}
+trap 'stop_spinner' EXIT
+trap 'interrupt 130' INT
+trap 'interrupt 143' HUP TERM
+run_logged() {
+    "$@" >> "$log" 2>&1 < /dev/null & command_pid=$!
+    local code=0
+    wait "$command_pid" || code=$?
+    command_pid=''
+    return "$code"
+}
+run() {
+    local code=0
+    run_logged "$@" || code=$?
+    if [ "$code" -ne 0 ]; then show_error "Install stopped: $* failed."; exit "$code"; fi
+}
+fail() { printf '%s\n' "$1" >> "$log"; show_error "$1"; exit 1; }
+
+apt_install() {
+    run sudo -n apt-get update
+    run sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
+}
+
+printf '\n'
+
+if [ "${answer[packages]}" = yes ]; then
+    package_count=$((${#base_packages[@]} + ${#tool_packages[@]}))
+    step Packages "$package_count apt packages, lazydocker"
+    done_packages=()
+    if [ "${#want_packages[@]}" -gt 0 ]; then
+        apt_install "${want_packages[@]}"
+        done_packages+=("${want_packages[@]}")
+    fi
+    case $(dpkg --print-architecture) in
+        amd64) arch=x86_64 ;; arm64) arch=arm64 ;; *) arch='' ;;
+    esac
+    lazydocker=$HOME/.local/bin/lazydocker
+    if [ -z "$arch" ]; then
+        printf 'lazydocker: no pinned build for %s, skipped\n' "$(dpkg --print-architecture)" >> "$log"
+    elif ! "$lazydocker" --version 2>/dev/null | grep -qx "Version: $lazydocker_version"; then
+        tmp=$(mktemp -d)
+        file=lazydocker_${lazydocker_version}_Linux_$arch.tar.gz
+        run curl -fsSL -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
+        printf '%s  %s\n' "${lazydocker_sha256[$arch]}" "$tmp/$file" > "$tmp/sum"
+        run sha256sum -c "$tmp/sum"
+        run tar -xzf "$tmp/$file" -C "$tmp" lazydocker
+        mkdir -p "$HOME/.local/bin"
+        [ ! -e "$lazydocker" ] || backup "$lazydocker"
+        run install -m 755 "$tmp/lazydocker" "$lazydocker"
+        rm -rf -- "$tmp"
+        done_packages+=("lazydocker $lazydocker_version")
+    fi
+    # tealdeer needs its page cache once; later updates are `tldr --update`.
+    if command -v tldr >/dev/null && [ ! -d "${XDG_CACHE_HOME:-$HOME/.cache}/tealdeer" ]; then
+        run tldr --update
+        done_packages+=('tldr pages')
+    fi
+    # zoxide replaces zsh-z: carry the old directory history over, once, while
+    # zoxide has no database of its own yet. ~/.z itself stays as it is.
+    zoxide_db=${_ZO_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}/zoxide}/db.zo
+    if [ -s "$HOME/.z" ] && [ ! -e "$zoxide_db" ] && command -v zoxide >/dev/null; then
+        # zoxide 0.9 (trixie) takes --from z PATH; 0.10 reads ~/.z itself.
+        zoxide_help=$(zoxide import --help 2>/dev/null || true)
+        case $zoxide_help in
+            *--from*) run zoxide import --from z "$HOME/.z" ;;
+            *) run zoxide import zsh-z ;;
+        esac
+        done_packages+=('z history imported into zoxide')
+    fi
+    if [ "${#done_packages[@]}" -eq 0 ]; then
+        passed "all $package_count installed, lazydocker $lazydocker_version"
+    else
+        changes+=("packages: ${done_packages[*]}")
+        passed "installed ${done_packages[*]}"
+    fi
+fi
+
+if [ "${answer[ohmyzsh]}" = yes ]; then
+    step oh-my-zsh 'oh-my-zsh, 2 plugins, p10k'
+    zsh_dir=$HOME/.oh-my-zsh
+    custom=${ZSH_CUSTOM:-$zsh_dir/custom}
+    updated=(); installed=()
+    # name|url|directory; oh-my-zsh first, the others live inside it.
+    for entry in \
+        "oh-my-zsh|https://github.com/ohmyzsh/ohmyzsh.git|$zsh_dir" \
+        "zsh-autosuggestions|https://github.com/zsh-users/zsh-autosuggestions.git|$custom/plugins/zsh-autosuggestions" \
+        "zsh-syntax-highlighting|https://github.com/zsh-users/zsh-syntax-highlighting.git|$custom/plugins/zsh-syntax-highlighting" \
+        "powerlevel10k|https://github.com/romkatv/powerlevel10k.git|$custom/themes/powerlevel10k"
+    do
+        IFS='|' read -r name url dir <<< "$entry"
+        if [ -d "$dir/.git" ]; then
+            # Earlier versions of this setup copied a tmux config over a file
+            # oh-my-zsh owns; keep a backup, then give omz its file back.
+            mapfile -t modified < <(git -C "$dir" diff --name-only)
+            for path in "${modified[@]}"; do
+                [ -n "$path" ] || continue
+                backup "$dir/$path" copy
+                run git -C "$dir" checkout -- "$path"
+                changes+=("$name: restored $path (local copy in backup)")
+            done
+            # Ask the remote first: pulling when nothing is new still writes
+            # FETCH_HEAD/ORIG_HEAD, and a rerun should leave everything as it was.
+            branch=$(git -C "$dir" symbolic-ref --short HEAD 2>/dev/null) || fail "$name in $dir is not on a branch."
+            remote_head=$(git -C "$dir" ls-remote origin "refs/heads/$branch" 2>> "$log" | cut -f1 || true)
+            [ -n "$remote_head" ] || fail "Cannot reach the $name repository."
+            if [ "$remote_head" != "$(git -C "$dir" rev-parse HEAD)" ]; then
+                run git -C "$dir" pull --ff-only --quiet
+                updated+=("$name")
+            fi
+        else
+            [ ! -e "$dir" ] || backup "$dir"
+            mkdir -p "$(dirname -- "$dir")"
+            # The git settings oh-my-zsh's own installer uses, without running it
+            # (umask 022 above keeps the clone free of group/other write bits).
+            run git clone --quiet --depth=1 \
+                -c core.eol=lf -c core.autocrlf=false \
+                -c fsck.zeroPaddedFilemode=ignore -c fetch.fsck.zeroPaddedFilemode=ignore \
+                -c receive.fsck.zeroPaddedFilemode=ignore \
+                "$url" "$dir"
+            installed+=("$name")
+        fi
+    done
+    result=''
+    [ "${#installed[@]}" -eq 0 ] || result="installed ${installed[*]}"
+    [ "${#updated[@]}" -eq 0 ] || result="${result:+$result; }updated ${updated[*]}"
+    if [ -n "$result" ]; then changes+=("oh-my-zsh: $result"); else result='all up to date'; fi
+    passed "$result"
+fi
+
+if [ "${answer[shell]}" = yes ]; then
+    step Shell 'zsh as login shell'
+    zsh_path=$(command -v zsh) || fail 'zsh is not installed.'
+    if [ "$login_shell" = "$zsh_path" ]; then
+        passed "already $zsh_path"
+    else
+        run sudo -n chsh -s "$zsh_path" "$(id -un)"
+        changes+=("login shell: $login_shell $arrow $zsh_path")
+        passed "$login_shell $arrow $zsh_path"
+    fi
+fi
+
+if [ "${answer[fonts]}" = yes ]; then
+    step Fonts 'MesloLGS NF'
+    [ "${#want_fontconfig[@]}" -eq 0 ] || { apt_install fontconfig; changes+=('apt: fontconfig'); }
+    font_dir=$HOME/.local/share/fonts
+    mkdir -p "$font_dir"
+    new_fonts=0
+    for font in "${!font_sha256[@]}"; do
+        if [ -f "$font_dir/$font" ] && [ "$(sha256sum < "$font_dir/$font" | cut -d' ' -f1)" = "${font_sha256[$font]}" ]; then
+            continue
+        fi
+        tmp=$(mktemp)
+        run curl -fsSL -o "$tmp" "$fonts_url/${font// /%20}"
+        [ "$(sha256sum < "$tmp" | cut -d' ' -f1)" = "${font_sha256[$font]}" ] || { rm -f -- "$tmp"; fail "Checksum mismatch for $font."; }
+        [ ! -e "$font_dir/$font" ] || backup "$font_dir/$font"
+        mv -- "$tmp" "$font_dir/$font"
+        chmod 644 "$font_dir/$font"
+        new_fonts=$((new_fonts + 1))
+    done
+    if [ "$new_fonts" -eq 0 ]; then
+        passed 'all 4 installed'
+    else
+        run fc-cache -f "$font_dir"
+        changes+=("fonts: $new_fonts MesloLGS NF files")
+        passed "installed $new_fonts"
+    fi
+fi
+
+if [ "${answer[links]}" = yes ]; then
+    step Links "${#links[@]} dotfiles"
+    linked=()
+    for rel in "${links[@]}"; do
+        source_file=$repo/linux/$rel
+        dest=$HOME/$rel
+        [ -f "$source_file" ] || fail "Missing in the repo: linux/$rel"
+        [ "$(readlink -- "$dest" 2>/dev/null || true)" != "$source_file" ] || continue
+        if [ -e "$dest" ] || [ -L "$dest" ]; then backup "$dest"; fi
+        mkdir -p "$(dirname -- "$dest")"
+        ln -s -- "$source_file" "$dest"
+        printf 'link: %s -> %s\n' "$dest" "$source_file" >> "$log"
+        # shellcheck disable=SC2088 # a label, not a path
+        linked+=("~/$rel")
+    done
+    if [ "${#linked[@]}" -eq 0 ]; then
+        passed 'all linked'
+    else
+        changes+=("links: ${linked[*]}")
+        passed "linked ${linked[*]}"
+    fi
+fi
+
+# Remember this run for the next one; rewritten only when something differs.
+new_state=$(printf 'commit=%s\n' "$new_commit"; for key in "${keys[@]}"; do printf '%s=%s\n' "$key" "${answer[$key]}"; done)
+if [ "$new_state" != "$(cat "$state_file" 2>/dev/null || true)" ]; then
+    printf '%s\n' "$new_state" > "$state_file"
+fi
+
+# --------------------------------------------------------------- summary ---
+printf '\n'
+if [ "${#changes[@]}" -eq 0 ]; then
+    printf '  Nothing changed; everything was already in place.\n'
+else
+    printf '  Changed:\n'
+    printf '    %s\n' "${changes[@]}"
+fi
+[ -z "$backup_dir" ] || printf '  Backups: %s\n' "$backup_dir"
+printf '  Log:     %s\n' "$log"
+printf '\n  Done in %s. Open a new shell (exec zsh), then run %shelp-dots%s for the cheat sheet.\n' \
+    "$(duration "$(($(date +%s) - started))")" "$bold" "$reset"
