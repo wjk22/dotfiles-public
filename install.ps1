@@ -200,14 +200,8 @@ if (Test-Path $pwsh) {
 }
 $bootstrapFile = Join-Path $repo 'windows\Microsoft.PowerShell_profile.ps1'
 
-function Format-Setting([string]$Line) {
-    # A setting without its value: values can hold paths, tokens or passwords.
-    $i = $Line.IndexOf('=')
-    if ($i -ge 0) { $Line = $Line.Substring(0, $i + 1) + '...' }
-    if ($Line.Length -gt 60) { $Line = $Line.Substring(0, 60) + '...' }
-    return $Line
-}
-# Non-blank, non-comment lines of $UserFile that $RepoFile doesn't have.
+# Line numbers of the non-blank, non-comment lines of $UserFile that $RepoFile
+# doesn't have. Numbers only: the lines can hold paths, tokens or passwords.
 function Get-UserOnlyLine([string]$UserFile, [string]$RepoFile) {
     $repoLines = @{}
     if (Test-Path -LiteralPath $RepoFile) { foreach ($l in Get-Content -LiteralPath $RepoFile) { $repoLines[$l.Trim()] = $true } }
@@ -215,19 +209,15 @@ function Get-UserOnlyLine([string]$UserFile, [string]$RepoFile) {
     foreach ($l in Get-Content -LiteralPath $UserFile) {
         $n++
         $t = $l.Trim()
-        if ($t -and -not $t.StartsWith('#') -and -not $repoLines.ContainsKey($t)) { [pscustomobject]@{ Number = $n; Text = $t } }
+        if ($t -and -not $t.StartsWith('#') -and -not $repoLines.ContainsKey($t)) { $n }
     }
 }
 function Add-LocalNote([string]$Label, [string]$UserFile, [string]$RepoFile, [string]$Kept) {
     $lines = @(Get-UserOnlyLine $UserFile $RepoFile)
     if ($lines.Count -eq 0) { return }
-    $numbers = ($lines | Select-Object -First 12 | ForEach-Object { $_.Number }) -join ', '
+    $numbers = ($lines | Select-Object -First 12) -join ', '
     if ($lines.Count -gt 12) { $numbers += ', ...' }
-    $examples = @($lines | Where-Object { $_.Text -match '^(\$env:|Set-Alias|New-Alias|function |\. |Import-Module|Invoke-Expression)' } |
-        Select-Object -First 6 | ForEach-Object { Format-Setting $_.Text })
-    $text = "${Label}: $($lines.Count) line(s) not in the new setup (line $numbers)"
-    if ($examples.Count -gt 0) { $text += ", e.g. $($examples -join '; ')" }
-    $script:localNotes += "$text. $Kept; move what you still need into ~\.config\powershell.local.ps1."
+    $script:localNotes += "${Label}: $($lines.Count) line(s) not in the new setup (line $numbers). $Kept; move what you still need into ~\.config\powershell.local.ps1."
 }
 function Get-ConfigPlan {
     $script:replacePlan = @(); $script:localNotes = @()
@@ -325,6 +315,11 @@ function Test-Plan {
     }
     if ($answer['apps'] -eq 'yes' -and $answer['choco'] -eq 'no') {
         return 'The optional apps go through the Chocolatey step; answer yes to 1 as well.'
+    }
+    # Backups never go through a link.
+    $backupParent = Get-Item -LiteralPath (Join-Path $env:USERPROFILE '.dotfiles-backup') -Force -ErrorAction SilentlyContinue
+    if ($backupParent -and ($backupParent.LinkType -or -not $backupParent.PSIsContainer)) {
+        return '~\.dotfiles-backup is a link or not a folder; move it away first, backups never go through a link.'
     }
     if ($answer['config'] -eq 'yes') {
         $blocked = @($script:replacePlan | Where-Object { $_ -like '*move it away first.' })
