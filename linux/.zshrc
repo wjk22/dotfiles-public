@@ -36,5 +36,6 @@ source ~/.alias
 eval "$(dircolors ~/.dir_colors)"
 zstyle ':completion:*:default' list-colors "${(s.:.)LS_COLORS}"
 
-# Machine-local settings (PATH additions, tokens, ...): never in the repo.
+# Put personal settings (PATH additions, tokens, ...) in ~/.zshrc.local.
+# Loaded last so they can override the shared defaults without editing this file.
 [[ ! -r ~/.zshrc.local ]] || source ~/.zshrc.local

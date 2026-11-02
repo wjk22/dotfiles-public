@@ -8,8 +8,9 @@ else
 fi
 alias evi='v ~/.config/nvim'
 
-# Edit aliases
+# Shared aliases: eal. Personal overrides: eall (loaded last below).
 alias eal='v ~/.alias ; source ~/.alias'
+alias eall='v ~/.alias.local ; source ~/.alias'
 
 # Debian's names for bat and fd
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
@@ -45,12 +46,12 @@ help-dots() {
   # $commands sees real programs only; command -v would also match the bat alias.
   for viewer in bat batcat; do
     if (( $+commands[$viewer] )); then
-      "$viewer" --style=plain --language=markdown --paging=always "$DOTFILES/HELP.md"
+      "$viewer" --theme=ansi --style=plain --language=markdown --paging=always "$DOTFILES/HELP.md"
       return
     fi
   done
   less "$DOTFILES/HELP.md"
 }
 
-# Machine-local aliases: never in the repo.
+# Put personal aliases/overrides in ~/.alias.local, not this shared file.
 [[ ! -r ~/.alias.local ]] || source ~/.alias.local

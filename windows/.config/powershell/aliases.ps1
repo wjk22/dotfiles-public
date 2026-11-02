@@ -65,7 +65,7 @@ function help-dots {
     if (-not $env:DOTFILES) { Write-Warning 'DOTFILES is not set; run install.ps1 windows again.'; return }
     $helpFile = Join-Path $env:DOTFILES 'HELP.md'
     if (Get-Command bat -ErrorAction SilentlyContinue) {
-        bat --style=plain --language=markdown --paging=always $helpFile
+        bat --theme=ansi --style=plain --language=markdown --paging=always $helpFile
     } else {
         Get-Content $helpFile | more
     }

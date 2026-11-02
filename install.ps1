@@ -219,8 +219,53 @@ function Add-LocalNote([string]$Label, [string]$UserFile, [string]$RepoFile, [st
     if ($lines.Count -gt 12) { $numbers += ', ...' }
     $script:localNotes += "${Label}: $($lines.Count) line(s) not in the new setup (line $numbers). $Kept; move what you still need into ~\.config\powershell.local.ps1."
 }
+# Check ancestors, not just the item being replaced. A junction at .config or
+# above $PROFILE must not redirect writes into another directory's contents.
+function Get-ParentProblem([string]$Path) {
+    $parent = Split-Path -Parent $Path
+    while ($parent) {
+        $item = Get-Item -LiteralPath $parent -Force -ErrorAction SilentlyContinue
+        if ($item -and ($item.LinkType -or -not $item.PSIsContainer)) {
+            return "$parent is a link or not a folder; move it away first."
+        }
+        $next = Split-Path -Parent $parent
+        if ($next -eq $parent) { break }
+        $parent = $next
+    }
+    return ''
+}
+function Get-ConfigProblem {
+    foreach ($path in @($configLink, $profilePath)) {
+        if (-not $path) { continue }
+        $problem = Get-ParentProblem $path
+        if ($problem) { return $problem }
+    }
+    $item = Get-Item -LiteralPath $configLink -Force -ErrorAction SilentlyContinue
+    if ($item -and -not $item.LinkType -and -not $item.PSIsContainer) {
+        return '~\.config\powershell is a file; move it away first.'
+    }
+    if ($profilePath) {
+        $item = Get-Item -LiteralPath $profilePath -Force -ErrorAction SilentlyContinue
+        if ($item -and $item.PSIsContainer) { return "$profilePath is a folder; move it away first." }
+    }
+    return ''
+}
+# Shared by the plan and apply step so an unchanged UNC copy is a no-op in both.
+function Test-ConfigCopy {
+    if (-not $onNetworkPath) { return $false }
+    $item = Get-Item -LiteralPath $configLink -Force -ErrorAction SilentlyContinue
+    if (-not $item -or $item.LinkType -or -not $item.PSIsContainer) { return $false }
+    foreach ($file in Get-ChildItem -LiteralPath $configSource -File) {
+        $copied = Join-Path $configLink $file.Name
+        $copy = Get-Item -LiteralPath $copied -Force -ErrorAction SilentlyContinue
+        if (-not $copy -or $copy.LinkType -or $copy.PSIsContainer) { return $false }
+        if ((Get-FileHash -LiteralPath $copied).Hash -ne (Get-FileHash -LiteralPath $file.FullName).Hash) { return $false }
+    }
+    return $true
+}
 function Get-ConfigPlan {
     $script:replacePlan = @(); $script:localNotes = @()
+    if (Get-ConfigProblem) { return }
     $item = Get-Item -LiteralPath $configLink -Force -ErrorAction SilentlyContinue
     if ($item) {
         $target = if ($item.LinkType) { @($item.Target)[0] } else { $null }
@@ -228,6 +273,8 @@ function Get-ConfigPlan {
             # already linked to this repo
         } elseif ($item.LinkType) {
             $script:replacePlan += "~\.config\powershell ($($item.LinkType) to $target) -> renamed to ~\.config\powershell.$stamp.bak, target untouched"
+        } elseif (Test-ConfigCopy) {
+            # The apply step keeps this identical copy too.
         } elseif ($item.PSIsContainer) {
             $script:replacePlan += "~\.config\powershell (folder) -> backup ~\.config\powershell.$stamp.bak"
             foreach ($name in 'aliases.ps1', 'user_profile.ps1') {
@@ -322,8 +369,8 @@ function Test-Plan {
         return '~\.dotfiles-backup is a link or not a folder; move it away first, backups never go through a link.'
     }
     if ($answer['config'] -eq 'yes') {
-        $blocked = @($script:replacePlan | Where-Object { $_ -like '*move it away first.' })
-        if ($blocked.Count -gt 0) { return $blocked[0] }
+        $problem = Get-ConfigProblem
+        if ($problem) { return $problem }
     }
     return ''
 }
@@ -387,14 +434,16 @@ function Save-Bak([string]$Path) {
     if (Test-Path -LiteralPath $bak) { Stop-Step "$bak already exists; not overwriting a backup." }
     try {
         $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
-        if ($item.LinkType) { Rename-Item -LiteralPath $Path -NewName (Split-Path -Leaf $bak) -ErrorAction Stop }
+        # LinkType is evaluated against the old path; save it before renaming.
+        $wasLink = [bool]$item.LinkType
+        if ($wasLink) { Rename-Item -LiteralPath $Path -NewName (Split-Path -Leaf $bak) -ErrorAction Stop }
         else { Copy-Item -LiteralPath $Path -Destination $bak -Recurse -ErrorAction Stop }
     } catch {
         Stop-Step "Backup of $Path failed ($($_.Exception.Message)); nothing was replaced."
     }
     Add-Content -LiteralPath $log -Value "bak: $Path -> $bak" -Encoding UTF8
     $script:replaced.Add("$Path -> $bak")
-    return [bool]$item.LinkType
+    return $wasLink
 }
 
 $changes = New-Object System.Collections.Generic.List[string]
@@ -614,6 +663,12 @@ if ($answer['fonts'] -eq 'yes') {
 if ($answer['config'] -eq 'yes') {
     Start-Step 'Config' 'junction, $PROFILE, DOTFILES'
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
+    # Query again after Chocolatey may have installed pwsh. Check every
+    # destination before the first config write, including redirected Documents.
+    $profilePath = (& $pwsh -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' | Out-String).Trim()
+    if (-not $profilePath) { Stop-Step 'Could not read $PROFILE from pwsh.' }
+    $problem = Get-ConfigProblem
+    if ($problem) { Stop-Step $problem }
     $configDone = @()
 
     # 1. %USERPROFILE%\.config\powershell -> repo: a junction, a copy only as fallback.
@@ -623,17 +678,7 @@ if ($answer['config'] -eq 'yes') {
         $linked = (@($item.Target)[0].TrimEnd('\')) -eq $configSource.TrimEnd('\')
     }
     if (-not $linked) {
-        $copyIsCurrent = $false
-        if ($onNetworkPath -and $item -and -not $item.LinkType) {
-            $copyIsCurrent = $true
-            foreach ($file in Get-ChildItem -LiteralPath $configSource -File) {
-                $copied = Join-Path $configLink $file.Name
-                if (-not (Test-Path $copied) -or (Get-FileHash -LiteralPath $copied).Hash -ne (Get-FileHash -LiteralPath $file.FullName).Hash) {
-                    $copyIsCurrent = $false
-                }
-            }
-        }
-        if (-not $copyIsCurrent) {
+        if (-not (Test-ConfigCopy)) {
             if ($item) {
                 # A link is renamed to its .bak; a folder is copied there, then moved to the backup folder.
                 $wasLink = Save-Bak $configLink
@@ -659,8 +704,6 @@ if ($answer['config'] -eq 'yes') {
     }
 
     # 2. $PROFILE as pwsh sees it (it may be redirected to OneDrive).
-    $profilePath = (& $pwsh -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' | Out-String).Trim()
-    if (-not $profilePath) { Stop-Step 'Could not read $PROFILE from pwsh.' }
     $bootstrap = Get-Content -LiteralPath (Join-Path $repo 'windows\Microsoft.PowerShell_profile.ps1') -Raw
     $profileItem = Get-Item -LiteralPath $profilePath -Force -ErrorAction SilentlyContinue
     $current = if ($profileItem -and -not $profileItem.LinkType) { Get-Content -LiteralPath $profilePath -Raw } else { $null }

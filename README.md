@@ -79,8 +79,10 @@ my data in my own cloud encrypted and on a backup drive.
    - zsh as login shell, the MesloLGS NF fonts (not needed in WSL, Windows Terminal uses the Windows fonts)
    - `.zshrc`, `.alias`, `.p10k.zsh`, `.dir_colors` and the tmux config linked from `linux/`
 
-2. Your own machine-only stuff (PATH additions, tokens, extra aliases) goes into `~/.zshrc.local`
-   and `~/.alias.local`. They're loaded if they exist and never end up here. If your current
+2. Your own machine-only stuff goes into `~/.zshrc.local` (shell settings, PATH, tokens)
+   and `~/.alias.local` (aliases). The main files load these last, so your settings override
+   the shared defaults; you only need to change the local files. `eall` edits `~/.alias.local`
+   and reloads aliases; `eal` still edits the shared `~/.alias`. If your current
    `~/.zshrc` has such lines, move them there before the first run; the old file lands in the backup anyway.
 
 3. [zoxide](https://github.com/ajeetdsouza/zoxide) - `z` directory jumper, same on Windows. An old `~/.z` from zsh-z is imported once.
@@ -99,7 +101,7 @@ hehe stopped using a mac two years ago :P
 
 `help-dots` shows all of it, here the favourites:
 
-eal opens aliases in vim and rereads aliases
+eall opens your local aliases in vim and rereads aliases; eal edits the shared aliases
 
 #### Windows
 Alt-space opens wox
