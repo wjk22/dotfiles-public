@@ -18,9 +18,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$systemPackages = @('powershell-core', 'everything', 'totalcommander')
-$appPackages = @('ditto', 'imageglass', 'googlechrome', 'firefox', 'potplayer',
-    'systeminformer', 'vscode', 'vlc', 'python3', 'seafile-client')
+$packageConfig = & (Join-Path $PSScriptRoot 'read-packages.ps1')
+$systemPackages = @($packageConfig.ChocolateySystem)
+$appPackages = @($packageConfig.ChocolateyApps)
 
 function Add-LogLine([string]$Text) {
     if ($Log) { Add-Content -LiteralPath $Log -Value $Text -Encoding UTF8 } else { Write-Output $Text }
@@ -85,7 +85,8 @@ if (-not (Test-Path $choco)) {
 $packages = $systemPackages
 if ($Apps) { $packages += $appPackages }
 # upgrade installs what's missing and updates what's outdated.
-$code = Invoke-Logged { & $choco upgrade $packages -y }
+$code = 0
+if ($packages.Count -gt 0) { $code = Invoke-Logged { & $choco upgrade $packages -y } }
 # 1641 and 3010: done, a reboot is needed.
 if (@(0, 1641, 3010) -notcontains $code) { Stop-Admin "choco upgrade failed (exit $code)." }
 if ($Log) {

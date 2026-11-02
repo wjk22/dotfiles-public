@@ -4,6 +4,7 @@
 # Machine-local shell settings; the repo files source them if present
 .zshrc.local
 .alias.local
+windows/packages.local.psd1
 
 # Editor droppings
 *~

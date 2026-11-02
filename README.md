@@ -53,6 +53,15 @@ dust, gdu, duf, tealdeer (and inxi on Linux).
 
    `windows\install-admin.ps1` is the Chocolatey part on its own, if you want to run it from an elevated shell.
 
+   Package lists live in [`windows/packages.psd1`](windows/packages.psd1).
+   For your own choices, copy it to `windows/packages.local.psd1` and edit that copy:
+   add or remove package IDs in `ChocolateySystem`, `ChocolateyApps`, and `Scoop`.
+   The local file replaces all three default lists and is ignored by Git, so the
+   installer's clean-checkout check still passes. Both installers read the same file.
+   Use `@()` for an empty group. Removing an entry stops installing/updating it;
+   it does not uninstall an existing app. Scoop IDs come from the main/extras buckets.
+   PowerShell modules and fonts remain separate installer steps.
+
 3. Install Total Commander Ultima Prime from https://www.tcup.pl/index.php/en/, buy a license from https://www.ghisler.com/ (
 This is imho the best file commander ever invented, please prove me wrong..) The `tc` alias takes TCUP if it's there.
 

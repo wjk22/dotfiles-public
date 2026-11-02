@@ -103,6 +103,12 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
 if ($onNetworkPath) { $repoDetail += '; network path, so the config is copied, not linked' }
 Write-Check 'Repo' $repoDetail
 
+try { $packageConfig = & (Join-Path $repo 'windows\read-packages.ps1') }
+catch { Stop-Install "Could not read package config: $($_.Exception.Message)" }
+$systemPackages = @($packageConfig.ChocolateySystem)
+$appPackages = @($packageConfig.ChocolateyApps)
+$scoopApps = @($packageConfig.Scoop)
+
 $haveChoco = Test-Path (Join-Path $env:ProgramData 'chocolatey\bin\choco.exe')
 $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
 $haveScoop = Test-Path (Join-Path $scoopRoot 'shims\scoop.ps1')
@@ -112,8 +118,8 @@ Write-Check 'Managers' ('Chocolatey {0}, scoop {1}' -f @(
 
 # Old installs (e.g. git, gsudo, wox from the earlier README) also on Chocolatey:
 # both work, PATH order decides which one runs. Reported only, never removed.
-$overlapIds = @('git', 'git.install', 'git.portable', 'neovim', 'gsudo', 'oh-my-posh', 'wox',
-    'lazygit', 'lazydocker', 'ripgrep', 'fzf', 'fd', 'bat', 'eza', 'zoxide', 'btop', 'dust', 'gdu', 'duf', 'tealdeer')
+$overlapIds = @($scoopApps)
+if ($scoopApps -contains 'git') { $overlapIds += @('git.install', 'git.portable') }
 $chocoOverlap = @()
 $chocoLib = Join-Path $env:ProgramData 'chocolatey\lib'
 if (Test-Path $chocoLib) {
@@ -159,11 +165,6 @@ if (-not $oldCommit) {
 }
 
 # -------------------------------------------------------------- questions ---
-$systemPackages = 'powershell-core everything totalcommander'
-$appPackages = 'ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client'
-# The tool set is the same as on Linux (minus inxi); extras has lazygit and wox.
-$scoopApps = @('git', 'neovim', 'gsudo', 'oh-my-posh', 'wox',
-    'lazygit', 'lazydocker', 'ripgrep', 'fzf', 'fd', 'bat', 'eza', 'zoxide', 'btop', 'dust', 'gdu', 'duf', 'tealdeer')
 $modules = @('PSReadLine', 'Terminal-Icons', 'PSFzf')
 $fontsUrl = 'https://github.com/romkatv/powerlevel10k-media/raw/145eb9fbc2f42ee408dacd9b22d8e6e0e553f83d'
 $fontSha256 = [ordered]@{
@@ -178,7 +179,7 @@ $configSource = Join-Path $repo 'windows\.config\powershell'
 
 $questions = @(
     @{ Key = 'choco'; Label = 'Use Chocolatey for system apps (one UAC prompt)'; Detail = "$systemPackages, PSWindowsUpdate module; no skips all Chocolatey installs" },
-    @{ Key = 'apps'; Label = 'Optional apps via Chocolatey (same UAC prompt)'; Detail = $appPackages },
+    @{ Key = 'apps'; Label = 'Optional apps via Chocolatey (same UAC prompt)'; Detail = ($appPackages -join ' ') },
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'set them in Windows Terminal afterwards' },
@@ -358,11 +359,15 @@ if (-not $Yes) {
 # A plan that would fail half-way is refused before anything changes.
 function Test-Plan {
     $needsPwsh = $answer['modules'] -eq 'yes' -or $answer['config'] -eq 'yes'
-    if ($needsPwsh -and $answer['choco'] -eq 'no' -and -not (Test-Path $pwsh)) {
-        return 'PowerShell 7 is missing; answer yes to 1 (Chocolatey) or install it first.'
+    $installsPwsh = $answer['choco'] -eq 'yes' -and ($systemPackages -contains 'powershell-core' -or ($answer['apps'] -eq 'yes' -and $appPackages -contains 'powershell-core'))
+    if ($needsPwsh -and -not $installsPwsh -and -not (Test-Path $pwsh)) {
+        return 'PowerShell 7 is missing; include powershell-core in a selected Chocolatey group, install it first, or disable steps 4 and 6.'
     }
-    if ($answer['modules'] -eq 'yes' -and $answer['choco'] -eq 'no' -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
-        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); answer yes to 1 to update it."
+    if ($answer['modules'] -eq 'yes' -and -not $installsPwsh -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
+        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); include powershell-core in a selected Chocolatey group, update it first, or disable step 4."
+    }
+    if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0 -and $scoopApps -notcontains 'git' -and -not (Get-Command git -ErrorAction SilentlyContinue)) {
+        return 'Scoop bucket updates need Git; add git to the Scoop group or install it first.'
     }
     # Backups never go through a link.
     $backupParent = Get-Item -LiteralPath (Join-Path $env:USERPROFILE '.dotfiles-backup') -Force -ErrorAction SilentlyContinue
@@ -542,7 +547,7 @@ if ($answer['choco'] -eq 'yes') {
     Complete-Step $text
 }
 
-if ($answer['scoop'] -eq 'yes') {
+if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
     Start-Step 'Scoop' "$($scoopApps.Count) tools"
     $scoopDone = @()
     if (-not (Test-Path (Join-Path $scoopRoot 'shims\scoop.ps1'))) {
