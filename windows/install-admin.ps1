@@ -18,7 +18,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-$systemPackages = @('powershell-core', 'everything', 'totalcommander', 'openvpn', 'netlimiter')
+$systemPackages = @('powershell-core', 'everything', 'totalcommander')
 $appPackages = @('ditto', 'imageglass', 'googlechrome', 'firefox', 'potplayer',
     'systeminformer', 'vscode', 'vlc', 'python3', 'seafile-client')
 

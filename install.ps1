@@ -159,7 +159,7 @@ if (-not $oldCommit) {
 }
 
 # -------------------------------------------------------------- questions ---
-$systemPackages = 'powershell-core everything totalcommander openvpn netlimiter'
+$systemPackages = 'powershell-core everything totalcommander'
 $appPackages = 'ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client'
 # The tool set is the same as on Linux (minus inxi); extras has lazygit and wox.
 $scoopApps = @('git', 'neovim', 'gsudo', 'oh-my-posh', 'wox',
