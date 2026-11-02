@@ -1,6 +1,6 @@
 <#
   The Chocolatey part of the dotfiles install: system-wide installs that need
-  admin rights. install.ps1 windows runs it once through UAC (it works with a
+  admin rights. install.ps1 runs it once through UAC (it works with a
   separate admin account). It also runs on its own from an elevated PowerShell:
 
     powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 [-Apps]

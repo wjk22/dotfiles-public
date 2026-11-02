@@ -6,7 +6,7 @@ Btw I use bitwarden/duo/2fa for nearly all my logins and store my own data encry
 at my own seafile server or my own gogs/gitea server.
 
 Latest Updates<br>
-v0.3 One guided installer per system (`./install.sh linux`, `.\install.ps1 windows`), modern tools, `help-dots` cheat sheet. Neovim moved to [dotfiles-nvim](https://github.com/wjk22/dotfiles-nvim), Node is gone <br>
+v0.3 One guided installer per system (`./install.sh`, `.\install.ps1`), modern tools, `help-dots` cheat sheet. Neovim moved to [dotfiles-nvim](https://github.com/wjk22/dotfiles-nvim), Node is gone <br>
 v0.25 Added some basic windows scripts and more features like fzf, readline for windows etc <br>
 v0.22 Added a rudimentary linux client install script run cd linux, run bash install.sh <br>
 v0.2 Added Linux Server information<br>
@@ -24,8 +24,8 @@ to you, never overwritten). Every run has its own log. It never prints what's in
 configs: for lines it won't carry over it shows only the file and the line numbers.
 
 ```
-./install.sh linux                                              # Debian 13+, also in WSL
-powershell -ExecutionPolicy Bypass -File .\install.ps1 windows  # Windows 10/11
+./install.sh                                              # Debian 13+, also in WSL
+powershell -ExecutionPolicy Bypass -File .\install.ps1  # Windows 10/11
 ```
 
 Then open a new shell and type `help-dots`: the cheat sheet for all of it ([HELP.md](HELP.md)).
@@ -40,11 +40,13 @@ dust, gdu, duf, tealdeer (and inxi on Linux).
 1. Clone this repo on the Windows side (e.g. `C:\Users\you\src`), not inside WSL: the
    PowerShell config is linked with a junction, and junctions can't point into `\\wsl$\`.
 
-2. Run `.\install.ps1 windows` as your normal user. It does:
+2. Run `.\install.ps1` as your normal user. It does:
    - [Chocolatey](https://chocolatey.org/) for the system installs, with one UAC prompt (your admin account):
      PowerShell 7, Everything, Total Commander, PSWindowsUpdate, and if you want the apps:
      ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client
      Answering no to Chocolatey skips all its installs and the optional-apps question.
+     If Chocolatey fails, the remaining steps continue and the final summary reports
+     the failure. PowerShell steps are skipped only if their required PowerShell version is unavailable.
    - [scoop](https://scoop.sh/) for everything that works per user: git, neovim, gsudo,
      [oh-my-posh](https://ohmyposh.dev/), wox and the tools above
    - PSReadLine, [Terminal Icons](https://github.com/devblackops/Terminal-Icons) and PSFzf for PowerShell 7
@@ -82,7 +84,7 @@ my data in my own cloud encrypted and on a backup drive.
 
 // I am old school I prefer zsh over fish ..
 
-1. `git clone https://github.com/wjk22/dotfiles-public.git && cd dotfiles-public && ./install.sh linux`
+1. `git clone https://github.com/wjk22/dotfiles-public.git && cd dotfiles-public && ./install.sh`
    - the packages: zsh, tmux, git, curl, neovim, htop, mc, mtr-tiny, tcpdump, iptraf-ng, dnsutils, rsync, sl and the tools above from apt; lazydocker from its GitHub release, checksum checked
    - [Oh my ZSH](https://ohmyz.sh) with [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions),
      [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) and [P10K](https://github.com/romkatv/powerlevel10k)

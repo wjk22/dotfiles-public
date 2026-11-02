@@ -62,7 +62,7 @@ function .. { Set-Location .. }
 
 # Cheat sheet for this setup; install.ps1 sets DOTFILES to the repo
 function help-dots {
-    if (-not $env:DOTFILES) { Write-Warning 'DOTFILES is not set; run install.ps1 windows again.'; return }
+    if (-not $env:DOTFILES) { Write-Warning 'DOTFILES is not set; run install.ps1 again.'; return }
     $helpFile = Join-Path $env:DOTFILES 'HELP.md'
     if (Get-Command bat -ErrorAction SilentlyContinue) {
         bat --theme=ansi --style=plain --language=markdown --paging=always $helpFile

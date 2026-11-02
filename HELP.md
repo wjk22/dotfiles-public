@@ -83,6 +83,6 @@ oh-my-zsh's tmux plugin adds `ta` (attach), `ts` (new session), `tl` (list) and 
 
 ## Updating
 
-Pull the repo and run the installer again: `./install.sh linux` or
-`.\install.ps1 windows`. It shows what's new, asks with your last answers as
+Pull the repo and run the installer again: `./install.sh` or
+`.\install.ps1`. It shows what's new, asks with your last answers as
 suggestions, and changes only what differs.

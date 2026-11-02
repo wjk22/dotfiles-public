@@ -2,16 +2,16 @@
   Install or update the dotfiles on Windows. Safe to run again: it asks first,
   changes only what differs and backs up what it replaces.
 
-    powershell -ExecutionPolicy Bypass -File .\install.ps1 windows [-Yes]
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 [-Yes]
 
   Run it as your normal user. Chocolatey (system installs) runs once through
   UAC via windows\install-admin.ps1; everything else is per user.
 #>
 [CmdletBinding()]
 param(
-    [Parameter(Position = 0)][string]$Target,
     # Accept every suggested answer and apply without asking.
-    [switch]$Yes
+    [switch]$Yes,
+    [Alias('h')][switch]$Help
 )
 Set-StrictMode -Version 2
 $ErrorActionPreference = 'Stop'
@@ -21,21 +21,17 @@ $started = Get-Date
 
 function Show-Usage {
     Write-Host @'
-Usage: .\install.ps1 TARGET [-Yes]
+Usage: .\install.ps1 [-Yes] [-Help]
 
-  windows   Windows 10/11: Chocolatey (one UAC prompt), scoop tools,
-            PowerShell modules, fonts and the PowerShell config
-  linux     Debian, also in WSL: run ./install.sh linux there instead
+  Windows 10/11: Chocolatey (one UAC prompt), scoop tools,
+  PowerShell modules, fonts and the PowerShell config.
+  On Debian or WSL, run ./install.sh instead.
 
   -Yes      accept every suggested answer and apply without asking
 '@
 }
 
-switch ($Target) {
-    'windows' { }
-    'linux' { Write-Host 'The linux target runs on Debian or in WSL: run ./install.sh linux there.'; exit 2 }
-    default { Show-Usage; exit 2 }
-}
+if ($Help) { Show-Usage; exit 0 }
 
 # ----------------------------------------------------------------- output ---
 # The script stays ASCII (Windows PowerShell reads BOM-less files as ANSI);
@@ -70,7 +66,7 @@ Write-Host ''
 Write-Host $title
 Write-Host ''
 
-if ($env:OS -ne 'Windows_NT') { Stop-Install 'This is not Windows; on Debian or in WSL run ./install.sh linux.' }
+if ($env:OS -ne 'Windows_NT') { Stop-Install 'This is not Windows; on Debian or in WSL run ./install.sh.' }
 $build = [Environment]::OSVersion.Version.Build
 # Per-user fonts and junctions without admin need Windows 10 1809 or newer.
 if ($build -lt 17763) { Stop-Install "Windows build $build is too old; this needs Windows 10 1809 (17763) or newer." }
@@ -494,6 +490,13 @@ function Stop-Step([string]$Text) {
     if ($script:backupDir) { Write-Host "  Backups: $($script:backupDir)" }
     exit 1
 }
+function Warn-Step([string]$Text) {
+    Add-Content -LiteralPath $log -Value $Text -Encoding UTF8
+    $warnings.Add("${script:stepName}: $Text")
+    Clear-StepLine
+    Write-Host ('  {0} {1,-12} {2}' -f $failed, $script:stepName, $Text) -ForegroundColor Yellow
+    Get-Content -LiteralPath $log -Tail 30 | ForEach-Object { Write-Host $_ }
+}
 # Streams a block's output to the console and log and returns its exit code. A
 # native command fails by its exit code (its stderr lines are only logged); a
 # cmdlet fails by throwing or by writing an error record.
@@ -530,21 +533,46 @@ function Invoke-Logged([scriptblock]$Block, [string]$What) {
 [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 Write-Host ''
 
+$skipModules = $false
+$skipConfig = $false
 if ($answer['choco'] -eq 'yes') {
     Start-Step 'Chocolatey' 'waiting for the UAC prompt'
     $adminArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$repo\windows\install-admin.ps1`"", '-Log', "`"$log`"")
     if ($answer['apps'] -eq 'yes') { $adminArgs += '-Apps' }
+    $chocoError = ''
     try {
         $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') `
             -ArgumentList $adminArgs -Verb RunAs -Wait -PassThru
     } catch {
-        Stop-Step 'UAC was cancelled or failed; nothing was installed with Chocolatey.'
+        $chocoError = 'UAC was cancelled or the Chocolatey step could not be started.'
     }
-    if ($process.ExitCode -ne 0) { Stop-Step "install-admin.ps1 failed (exit $($process.ExitCode))." }
-    $result = Select-String -LiteralPath $log -Pattern '^RESULT: (.*)$' | Select-Object -Last 1
-    $text = if ($result) { $result.Matches[0].Groups[1].Value } else { 'done' }
-    if ($text -ne 'all installed, up to date') { $changes.Add("chocolatey: $text") }
-    Complete-Step $text
+    if (-not $chocoError -and $process.ExitCode -ne 0) {
+        $chocoError = "install-admin.ps1 failed (exit $($process.ExitCode)); some packages may have been installed."
+    }
+    if ($chocoError) {
+        Warn-Step "$chocoError Continuing with the remaining steps."
+        # Chocolatey may have failed before installing/upgrading PowerShell.
+        # Skip only the dependent steps that cannot run; keep the user's choices.
+        $availablePwsh = $null
+        if (Test-Path $pwsh) {
+            try {
+                $availablePwsh = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
+            } catch { $availablePwsh = $null }
+        }
+        if ($answer['modules'] -eq 'yes' -and (-not $availablePwsh -or $availablePwsh -lt [version]'7.4')) {
+            $skipModules = $true
+            $warnings.Add('Modules skipped: PowerShell 7.4+ is unavailable after the Chocolatey failure.')
+        }
+        if ($answer['config'] -eq 'yes' -and -not $availablePwsh) {
+            $skipConfig = $true
+            $warnings.Add('PowerShell config skipped: PowerShell 7 is unavailable after the Chocolatey failure.')
+        }
+    } else {
+        $result = Select-String -LiteralPath $log -Pattern '^RESULT: (.*)$' | Select-Object -Last 1
+        $text = if ($result) { $result.Matches[0].Groups[1].Value } else { 'done' }
+        if ($text -ne 'all installed, up to date') { $changes.Add("chocolatey: $text") }
+        Complete-Step $text
+    }
 }
 
 if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
@@ -596,7 +624,7 @@ if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
     }
 }
 
-if ($answer['modules'] -eq 'yes') {
+if ($answer['modules'] -eq 'yes' -and -not $skipModules) {
     Start-Step 'Modules' ($modules -join ' ')
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     $pwshNow = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
@@ -674,7 +702,7 @@ if ($answer['fonts'] -eq 'yes') {
     }
 }
 
-if ($answer['config'] -eq 'yes') {
+if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
     Start-Step 'Config' 'junction, $PROFILE, DOTFILES'
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     # Query again after Chocolatey may have installed pwsh. Check every
@@ -756,7 +784,9 @@ if (($newState -join "`n") -ne ($oldState -join "`n")) {
 
 # ---------------------------------------------------------------- summary ---
 Write-Host ''
-if ($changes.Count -eq 0) {
+if ($changes.Count -eq 0 -and $warnings.Count -gt 0) {
+    Write-Host '  No completed changes were recorded; see warnings below.'
+} elseif ($changes.Count -eq 0) {
     Write-Host '  Nothing changed; everything was already in place.'
 } else {
     Write-Host '  Changed:'
@@ -785,6 +815,7 @@ if ((Get-Variable -Name unusedModules -ErrorAction SilentlyContinue) -and $unuse
 if ($script:backupDir) { Write-Host "  Backups: $($script:backupDir)" }
 Write-Host "  Log:     $log"
 Write-Host ''
-Write-Host "  Done in $(Format-Duration $started). Open a new PowerShell 7 window (pwsh), then run " -NoNewline
+$outcome = if ($warnings.Count -gt 0) { 'Finished with warnings' } else { 'Done' }
+Write-Host "  $outcome in $(Format-Duration $started). Open a new PowerShell 7 window (pwsh), then run " -NoNewline
 Write-Host 'help-dots' -ForegroundColor Cyan -NoNewline
 Write-Host ' for the cheat sheet.'

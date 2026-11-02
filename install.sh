@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install or update the dotfiles on Debian (also in WSL). Safe to run again:
 # it asks first, changes only what differs and backs up what it replaces.
-#   ./install.sh linux [--yes]
+#   ./install.sh [--yes]
 # shellcheck disable=SC2088 # "~/..." strings are labels for people, not paths
 set -euo pipefail
 
@@ -10,30 +10,24 @@ started=$(date +%s)
 
 usage() {
     cat <<'EOF'
-Usage: ./install.sh TARGET [--yes]
+Usage: ./install.sh [--yes]
 
-  linux     Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
-            tmux, fonts and the dotfiles from linux/
-  windows   Windows 10/11: run .\install.ps1 windows in PowerShell instead
+  Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
+  tmux, fonts and the dotfiles from linux/.
+  On Windows, run .\install.ps1 in PowerShell instead.
 
   --yes     accept every suggested answer and apply without asking
 EOF
 }
 
-target=''; assume_yes=no
+assume_yes=no
 for arg in "$@"; do
     case $arg in
         --yes|-y) assume_yes=yes ;;
         -h|--help) usage; exit 0 ;;
-        -*) usage >&2; exit 2 ;;
-        *) if [ -n "$target" ]; then usage >&2; exit 2; fi; target=$arg ;;
+        *) usage >&2; exit 2 ;;
     esac
 done
-case $target in
-    linux) ;;
-    windows) echo 'The windows target runs on Windows: open PowerShell in this folder and run .\install.ps1 windows' >&2; exit 2 ;;
-    *) usage >&2; exit 2 ;;
-esac
 
 # ---------------------------------------------------------------- output ---
 ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''; frames="| / - \\"
@@ -58,7 +52,7 @@ duration() {
 # Nothing is written before these pass, not even the log.
 printf '\n%s%s%s\n\n' "$bold" "$title" "$reset"
 
-[ "$(uname -s)" = Linux ] || die 'This is not Linux; on Windows run .\install.ps1 windows in PowerShell.'
+[ "$(uname -s)" = Linux ] || die 'This is not Linux; on Windows run .\install.ps1 in PowerShell.'
 [ -r /etc/os-release ] || die 'Cannot read /etc/os-release, so this does not look like Debian.'
 # shellcheck source=/dev/null
 IFS='|' read -r os_id os_version os_name < <(. /etc/os-release; printf '%s|%s|%s\n' "${ID:-}" "${VERSION_ID:-}" "${PRETTY_NAME:-${ID:-}}")
@@ -417,7 +411,7 @@ run() {
 fail() { printf '%s\n' "$1" >> "$log"; show_error "$1"; exit 1; }
 
 sudo_ready() {
-    sudo -n true 2>/dev/null || fail 'sudo needs the password again (its timeout ran out); run ./install.sh linux again.'
+    sudo -n true 2>/dev/null || fail 'sudo needs the password again (its timeout ran out); run ./install.sh again.'
 }
 apt_install() {
     sudo_ready
