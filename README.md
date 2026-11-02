@@ -18,8 +18,10 @@ v0.2 Added Linux Server information<br>
 One command after `git clone`. It checks the machine first, asks a few questions with a
 suggested answer (Enter takes it), shows you the whole plan and only does something when
 you say `a`. Run it again any time to update: it shows what's new in the checkout, suggests
-your last answers and changes only what differs. Anything it replaces goes to
-`~/.dotfiles-backup/<timestamp>/` first, every run has its own log.
+your last answers and changes only what differs. Anything it replaces is kept twice first:
+next to itself as `<file>.<timestamp>.bak` and in `~/.dotfiles-backup/<timestamp>/` (private
+to you, never overwritten). Every run has its own log. It never prints what's inside your
+configs: for lines it won't carry over it shows only the file and the line numbers.
 
 ```
 ./install.sh linux                                              # Debian 13+, also in WSL
@@ -85,7 +87,7 @@ my data in my own cloud encrypted and on a backup drive.
 
 4. My tmux uses the old screen binding Ctrl-a, config in `~/.config/tmux/tmux.conf`
 
-5. Neovim config: https://github.com/wjk22/dotfiles-nvim
+5. Neovim: this repo installs only the `nvim` program and the `v`/`vim` aliases; the config lives in https://github.com/wjk22/dotfiles-nvim and is never touched here
 
 6. Install vscode from https://code.visualstudio.com/download
 
