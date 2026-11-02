@@ -6,6 +6,23 @@ filekinds:
   mount_point: {foreground: "#D8D8D8", is_bold: false, is_underline: false}
   symlink: {foreground: "#66CCCC"}
   executable: {foreground: "#D7827E", is_bold: false}
+# Quiet metadata, like the Windows listing.
+punctuation: {foreground: "#C0C0C0", is_bold: false}
+date: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+perms:
+  user_read: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  user_write: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  user_execute_file: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  user_execute_other: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_read: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_write: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_execute: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  other_read: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  other_write: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  other_execute: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  special_user_file: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  special_other: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  attribute: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
 file_type:
   compressed: {foreground: "#8CACE2"}
   image: {foreground: "#C58BD9"}
