@@ -1,133 +1,217 @@
-# public dotfiles ..
+# dotfiles-public — v0.4.2
 
-Just my own setup for Windows and Linux as my work environment etc
+My everyday shell setup for **Debian, WSL and Windows**: familiar shortcuts,
+useful terminal tools, readable prompts, and a little history. I still prefer
+zsh over fish, still use Ctrl-a in tmux, and my directory colours go back to 1996 :P
 
-Btw I use bitwarden/duo/2fa for nearly all my logins and store my own data encrypted
-at my own seafile server or my own gogs/gitea server.
+One installer per system. Choose what you want, review the plan, and apply it.
+The shell configuration lives here; the Neovim configuration has its own repo:
+[dotfiles-nvim](https://github.com/wjk22/dotfiles-nvim).
 
-Latest Updates<br>
-v0.3 One guided installer per system (`./install.sh`, `.\install.ps1`), modern tools, `help-dots` cheat sheet. Neovim moved to [dotfiles-nvim](https://github.com/wjk22/dotfiles-nvim), Node is gone <br>
-v0.25 Added some basic windows scripts and more features like fzf, readline for windows etc <br>
-v0.22 Added a rudimentary linux client install script run cd linux, run bash install.sh <br>
-v0.2 Added Linux Server information<br>
-0.14 Added Linux Zsh dotfiles<br>
-0.1 Started this project<br>
+## What's new in 0.4.2
 
-## Install
+- **Simpler commands:** `./install.sh` on Linux, `.\install.ps1` on Windows.
+  There is no extra `linux` or `windows` argument.
+- **Editable Windows package lists:** choose your Chocolatey and Scoop packages
+  in a local config file, without editing installer code.
+- **Visible Windows installs:** Scoop and Chocolatey show live output and keep
+  logs. A Chocolatey failure is reported without stopping the remaining steps.
+  Saying no to Chocolatey disables its optional apps too.
+- **The old colours are back:** the original 1996 palette now lives in a readable
+  `dircolors` file, with matching colours for newer archive, image and video formats.
+- **A nicer `cat`:** `cat` and `bcat` use bat in zsh and PowerShell, with syntax
+  highlighting and line numbers. Personal aliases and settings live outside the repo.
 
-One command after `git clone`. It checks the machine first, asks a few questions with a
-suggested answer (Enter takes it), shows you the whole plan and only does something when
-you say `a`. Run it again any time to update: it shows what's new in the checkout, suggests
-your last answers and changes only what differs. Anything it replaces is kept twice first:
-next to itself as `<file>.<timestamp>.bak` and in `~/.dotfiles-backup/<timestamp>/` (private
-to you, never overwritten). Every run has its own log. It never prints what's inside your
-configs: for lines it won't carry over it shows only the file and the line numbers.
+## Getting started
 
+Clone the repo and run the installer as your normal user. On Debian, Git and
+sudo must already be available; package installation uses sudo. On Windows,
+Chocolatey uses one UAC prompt and can run under a separate administrator account.
+
+### Debian 13+ / WSL
+
+```sh
+git clone https://github.com/wjk22/dotfiles-public.git
+cd dotfiles-public
+./install.sh
 ```
-./install.sh                                              # Debian 13+, also in WSL
-powershell -ExecutionPolicy Bypass -File .\install.ps1  # Windows 10/11
+
+### Windows 10/11
+
+Prefer a checkout on a Windows drive, for example `C:\dev\Workspace\dotfiles-public`.
+This lets the installer link the PowerShell config with a directory junction.
+A checkout inside WSL also works, but the config is copied instead; rerun the
+installer to refresh that copy after changes.
+
+```powershell
+git clone https://github.com/wjk22/dotfiles-public.git
+cd dotfiles-public
+powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
-Then open a new shell and type `help-dots`: the cheat sheet for all of it ([HELP.md](HELP.md)).
+If your PowerShell execution policy already permits local scripts, just use
+`.\install.ps1`.
 
-What you get on both systems: lazygit, lazydocker, ripgrep, fzf, fd, bat, eza, zoxide, btop,
-dust, gdu, duf, tealdeer (and inxi on Linux).
+Enter accepts each suggested answer. The final plan lets you toggle steps by
+number, apply with `a`, or quit with `q`. On later runs, your previous choices
+become the suggestions. `--yes` on Linux and `-Yes` on Windows accept those
+suggestions and apply without asking; they do not mean "enable every step."
+Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
 
-## Windows
+After installation, open a new zsh or **PowerShell 7** window and run
+`help-dots` for the [command and keyboard cheat sheet](HELP.md).
+In Windows Terminal, select **MesloLGS NF** as the font for the profiles you use.
+The Windows installer installs the fonts but does not change Terminal settings.
 
-0. Setup two users user/admin admin password protected, work only as normal user.
+## What gets installed
 
-1. Clone this repo on the Windows side (e.g. `C:\Users\you\src`), not inside WSL: the
-   PowerShell config is linked with a junction, and junctions can't point into `\\wsl$\`.
+Both setups include lazygit, lazydocker, ripgrep, fzf, fd, bat, eza, zoxide,
+btop, dust, gdu, duf and tealdeer. Windows package choices are configurable.
 
-2. Run `.\install.ps1` as your normal user. It does:
-   - [Chocolatey](https://chocolatey.org/) for the system installs, with one UAC prompt (your admin account):
-     PowerShell 7, Everything, Total Commander, PSWindowsUpdate, and if you want the apps:
-     ditto imageglass googlechrome firefox potplayer systeminformer vscode vlc python3 seafile-client
-     Answering no to Chocolatey skips all its installs and the optional-apps question.
-     If Chocolatey fails, the remaining steps continue and the final summary reports
-     the failure. PowerShell steps are skipped only if their required PowerShell version is unavailable.
-   - [scoop](https://scoop.sh/) for everything that works per user: git, neovim, gsudo,
-     [oh-my-posh](https://ohmyposh.dev/), wox and the tools above
-   - PSReadLine, [Terminal Icons](https://github.com/devblackops/Terminal-Icons) and PSFzf for PowerShell 7
-   - the MesloLGS NF fonts, per user
-   - `%USERPROFILE%\.config\powershell` as a junction to this repo, and `$PROFILE` as a two-line bootstrap
+### Linux
 
-   `windows\install-admin.ps1` is the Chocolatey part on its own, if you want to run it from an elevated shell.
+The installer offers five steps: packages, Oh My Zsh and plugins, zsh as your
+login shell, fonts, and dotfile links. Debian packages also include Neovim,
+tmux, htop, Midnight Commander, inxi and networking tools. Lazydocker comes
+from a pinned GitHub release with a checked checksum.
 
-   Package lists live in [`windows/packages.psd1`](windows/packages.psd1).
-   For your own choices, copy it to `windows/packages.local.psd1` and edit that copy:
-   add or remove package IDs in `ChocolateySystem`, `ChocolateyApps`, and `Scoop`.
-   The local file replaces all three default lists and is ignored by Git, so the
-   installer's clean-checkout check still passes. Both installers read the same file.
-   Use `@()` for an empty group. Removing an entry stops installing/updating it;
-   it does not uninstall an existing app. Scoop IDs come from the main/extras buckets.
-   PowerShell modules and fonts remain separate installer steps.
+The shell uses **Oh My Zsh and Powerlevel10k**, autosuggestions, syntax
+highlighting, fzf and zoxide. It links `.zshrc`, `.alias`, `.p10k.zsh`,
+`.dir_colors` and `.config/tmux/tmux.conf` from this checkout into your home.
+Keep the checkout where it is while those links are in use.
 
-3. Install Total Commander Ultima Prime from https://www.tcup.pl/index.php/en/, buy a license from https://www.ghisler.com/ (
-This is imho the best file commander ever invented, please prove me wrong..) The `tc` alias takes TCUP if it's there.
+Tmux uses **Ctrl-a** as its prefix. `Ctrl-a v` / `Ctrl-a h` split panes;
+`Ctrl-Space` zooms a pane. The clipboard configuration uses OSC 52 for terminals
+that support it, including Windows Terminal.
 
-4. Buy a Netlimiter license - https://www.netlimiter.com/
+The directory palette keeps the original colours: blue directories, cyan
+symlinks, green executables, red archives, magenta images and white videos.
+GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses it too.
+Modern extensions such as `.zst`, `.webp` and `.mp4` follow the same scheme.
 
-5. Use Windows Terminal, set **MesloLGS NF** as the font. Work as user, elevate with gsudo.
+### Windows
 
-6. Install WSL with Debian: `wsl --install -d Debian` (https://learn.microsoft.com/windows/wsl/install), then follow the Linux part inside it.
+The six selectable steps are:
 
-7. Use Seafile if you use a seafile server, highly recommended. I keep all
-my data in my own cloud encrypted and on a backup drive.
+1. **Chocolatey system packages:** PowerShell 7, Everything and Total Commander
+   by default, plus the PSWindowsUpdate module for all users.
+2. **Optional Chocolatey apps:** Ditto, ImageGlass, Chrome, Firefox, PotPlayer,
+   System Informer, VS Code, VLC, Python and Seafile by default.
+3. **Scoop tools:** the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
+   and Wox, installed for the current user.
+4. **PowerShell modules:** PSReadLine, Terminal-Icons and PSFzf. This step needs
+   PowerShell 7.4 or newer.
+5. **MesloLGS NF fonts:** installed for the current user.
+6. **PowerShell config:** the config folder, a small `$PROFILE` bootstrap,
+   and the `DOTFILES` environment variable used by `help-dots`.
 
-8. Install Bitwarden for Chrome/Firefox/Windows and connect it to your own server.
+The prompt uses **Oh My Posh with the Takuya theme**: path, Git status, time
+and command status. It is a similar two-line setup to Linux, with its own theme.
+PSReadLine uses vi mode and history suggestions; `Ctrl+r` searches history and
+`Ctrl+f` selects files through fzf. Installing Oh My Posh alone does not activate
+the prompt: the PowerShell config step connects it to your profile.
 
-9. Install Duo Security as dual factor login for your windows/remote desktops, bitwarden server etc pp. It is free for a 10 user or less environment.
+Scoop output appears in the main terminal; Chocolatey output appears in its
+elevated window. Both are logged. If Chocolatey fails or elevation is cancelled,
+the installer continues and finishes with warnings. If PowerShell itself is
+missing or too old, the dependent steps are skipped and reported. Other failures
+still stop their run; the installer does not claim that failed work succeeded.
 
-## Linux (Debian, also in WSL2)
+OpenVPN and NetLimiter are not included in the package lists.
+`windows\install-admin.ps1` can also run directly from an elevated shell;
+add `-Apps` to include the optional Chocolatey group.
 
-// I am old school I prefer zsh over fish ..
+## Choose your Windows packages
 
-1. `git clone https://github.com/wjk22/dotfiles-public.git && cd dotfiles-public && ./install.sh`
-   - the packages: zsh, tmux, git, curl, neovim, htop, mc, mtr-tiny, tcpdump, iptraf-ng, dnsutils, rsync, sl and the tools above from apt; lazydocker from its GitHub release, checksum checked
-   - [Oh my ZSH](https://ohmyz.sh) with [zsh-autosuggestions](https://github.com/zsh-users/zsh-autosuggestions),
-     [zsh-syntax-highlighting](https://github.com/zsh-users/zsh-syntax-highlighting) and [P10K](https://github.com/romkatv/powerlevel10k)
-   - zsh as login shell, the MesloLGS NF fonts (not needed in WSL, Windows Terminal uses the Windows fonts)
-   - `.zshrc`, `.alias`, `.p10k.zsh`, `.dir_colors` and the tmux config linked from `linux/`
+The defaults are in [`windows/packages.psd1`](windows/packages.psd1). Copy that
+file to **`windows/packages.local.psd1`**, then add or remove quoted package IDs,
+one per line, in these groups:
 
-2. Your own machine-only stuff goes into `~/.zshrc.local` (shell settings, PATH, tokens)
-   and `~/.alias.local` (aliases). The main files load these last, so your settings override
-   the shared defaults; you only need to change the local files. `eall` edits `~/.alias.local`
-   and reloads aliases; `eal` still edits the shared `~/.alias`. If your current
-   `~/.zshrc` has such lines, move them there before the first run; the old file lands in the backup anyway.
+| Group | Used by |
+|---|---|
+| `ChocolateySystem` | The main Chocolatey step |
+| `ChocolateyApps` | The optional apps step |
+| `Scoop` | The per-user Scoop step; package IDs from the main/extras buckets |
 
-3. [zoxide](https://github.com/ajeetdsouza/zoxide) - `z` directory jumper, same on Windows. An old `~/.z` from zsh-z is imported once.
+The local file replaces all three lists; it is not merged with the defaults.
+It is ignored by Git, so personal choices do not trip the installer's
+clean-checkout check. The main installer and elevated helper use the same file.
+Delete the local file to return to the shared defaults.
 
-4. My tmux uses the old screen binding Ctrl-a, config in `~/.config/tmux/tmux.conf`
+Use `@()` for an empty group. Removing a package stops this installer from
+installing or updating it; it does **not** uninstall an existing application.
+Fonts and PowerShell modules are configured by their separate installer steps;
+PSWindowsUpdate remains part of the Chocolatey step.
 
-5. Neovim: this repo installs only the `nvim` program and the `v`/`vim` aliases; the config lives in https://github.com/wjk22/dotfiles-nvim and is never touched here
+## Personal settings and everyday commands
 
-6. Install vscode from https://code.visualstudio.com/download
+Keep machine-specific settings in these files, loaded after the shared defaults:
 
-## Mac
+| System | File | Purpose |
+|---|---|---|
+| Linux / WSL | `~/.zshrc.local` | Shell settings and PATH additions |
+| Linux / WSL | `~/.alias.local` | Personal aliases; `eall` edits and reloads them |
+| Windows | `~\.config\powershell.local.ps1` | Personal PowerShell settings and aliases |
 
-hehe stopped using a mac two years ago :P
+Existing custom lines are not automatically merged into the new shared config.
+The installer points out file names and line numbers to review and preserves
+the originals in backups. Move the settings you still want into the local files.
+On Linux, `eal` edits the shared aliases; use `eall` for your own additions.
 
-## Stuff to try
+A few favourites:
 
-`help-dots` shows all of it, here the favourites:
+- `cat file` or `bcat file`: bat, called `batcat` on Debian. For the original
+  reader, use `command cat` on Linux or `Get-Content` in PowerShell.
+- `el`, `es`, `esa`: eza listings; `z project` / `zi project`: jump with zoxide.
+- `v` / `vim`: Neovim. This repo installs the program and aliases, not its config.
+- `help-dots`: the full cheat sheet. `q` closes the viewer.
+- Windows: `gsudo command` elevates one command; `tc` opens Total Commander,
+  preferring TC Ultima Prime when installed.
 
-eall opens your local aliases in vim and rereads aliases; eal edits the shared aliases
+The separate [Neovim setup](https://github.com/wjk22/dotfiles-nvim) has its own
+requirements and installers. Installing the distro's `nvim` package here does
+not guarantee that it meets that configuration's required version.
 
-#### Windows
-Alt-space opens wox
+## Updates, backups and logs
 
-#### Linux
-Ctrl-r in zsh searches in your history
+Pull the repo and rerun the same installer. The scripts require a clean checkout;
+keep personal edits in the local files above. Linked shell files reflect repo
+changes in new shells; copied Windows configs need another installer run.
 
-### Links
+Before replacing existing shell configs, the installers preserve timestamped
+`.bak` paths and keep regular config files/folders under
+`~/.dotfiles-backup/<timestamp>/`. Windows renames an existing link to `.bak`
+without touching its target. Backup paths are never overwritten, and redirected
+parent paths are checked before config changes.
 
-Have a look at my awesome-list (https://github.com/wjk22/awesome-list) and you can see what kind of
-stuff I recommend
+Each applied run has a log, and the final summary prints its location:
 
-Inspired to publish my version by Craftzdog https://github.com/craftzdog/dotfiles-public#readme
+- Linux: `~/.local/state/dotfiles/logs/`, or `$XDG_STATE_HOME/dotfiles/logs/` when set.
+- Windows: `%LOCALAPPDATA%\dotfiles\logs\`.
+
+The ten newest installer logs are retained. Failed downloads or packages remain
+visible in the logs even when the rest of a Windows run completes.
+
+## A little history
+
+- **0.4.2:** configurable Windows packages, simpler installer commands, live
+  package output, Chocolatey failure isolation, the 1996 palette and bat aliases.
+- **0.3:** guided installers, modern terminal tools and `help-dots`; Neovim moved
+  to its own repository, and Node was removed from the base setup.
+- **0.25:** Windows scripts, fzf and PowerShell line editing.
+- **0.22:** the first Linux client installer.
+- **0.2 / 0.14 / 0.1:** Linux server notes, zsh dotfiles, and the beginning.
+
+I also use Bitwarden, Seafile and a private Git server for my own setup.
+[Total Commander Ultima Prime](https://www.tcup.pl/index.php/en/) remains a
+personal favourite; see [Total Commander](https://www.ghisler.com/) for licensing.
+More favourites live in my [awesome-list](https://github.com/wjk22/awesome-list).
+Mac: no installer here — I stopped using it :P
+
+Inspired to publish my version by [Craftzdog](https://github.com/craftzdog/dotfiles-public).
 
 ---
-... follow the white rabbit, no there is no spoon and may the force be with you .. <br>
+
+... follow the white rabbit, there is no spoon, and may the force be with you ...
+
 Wojciech Kalka <wojciech.kalka@skynet-services.net>
