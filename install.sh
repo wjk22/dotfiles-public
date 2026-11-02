@@ -49,6 +49,7 @@ fi
 
 die() { printf '  %s%s%s %s\n' "$red" "$failed" "$reset" "$1" >&2; exit 1; }
 check_ok() { printf '  %s%s%s %-12s %s\n' "$green" "$ok" "$reset" "$1" "$2"; }
+check_warn() { printf '  %s!%s %-12s %s\n' "$red" "$reset" "$1" "$2"; }
 duration() {
     awk -v seconds="$1" 'BEGIN {if (seconds >= 60) printf "%dm %ds", seconds/60, seconds%60; else printf "%ds", seconds}'
 }
@@ -69,6 +70,17 @@ fi
 wsl=no
 if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ] || grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then wsl=yes; fi
 check_ok System "$os_name$([ "$wsl" = yes ] && printf ' (WSL)')"
+
+# btop refuses to start without a UTF-8 locale, and tmux, p10k and eza need it for
+# their glyphs. A warning, not a stop: the user may fix it after the install.
+locale_name=${LC_ALL:-${LC_CTYPE:-${LANG:-POSIX}}}
+locale_warning=''
+if [ "$(locale charmap 2>/dev/null || true)" = UTF-8 ]; then
+    check_ok Locale "$locale_name"
+else
+    locale_warning="The locale ($locale_name) is not UTF-8: btop won't start and glyphs break. Add export LANG=C.UTF-8 to ~/.zshrc.local."
+    check_warn Locale "$locale_name is not UTF-8 (see the end)"
+fi
 
 [ "$(id -u)" -ne 0 ] || die 'Run this as your normal user, not as root; it uses sudo where it needs to.'
 command -v sudo >/dev/null || die "sudo is missing; as root run: apt install sudo && adduser $(id -un) sudo, then log in again."
@@ -334,6 +346,7 @@ backup() {
 }
 
 changes=(); warnings=(); replaced=()
+[ -z "$locale_warning" ] || warnings+=("$locale_warning")
 
 # ----------------------------------------------------------------- steps ---
 spinner_pid=''; command_pid=''; step_name=''
