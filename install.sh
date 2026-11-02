@@ -2,6 +2,7 @@
 # Install or update the dotfiles on Debian (also in WSL). Safe to run again:
 # it asks first, changes only what differs and backs up what it replaces.
 #   ./install.sh linux [--yes]
+# shellcheck disable=SC2088 # "~/..." strings are labels for people, not paths
 set -euo pipefail
 
 repo=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
@@ -122,8 +123,10 @@ declare -A font_sha256=(
 )
 # Repo file (under linux/) -> place in $HOME
 links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf)
+# Lines only in the user's copy of these are reported: they may be machine-local.
+declare -A local_file=([.zshrc]='~/.zshrc.local' [.alias]='~/.alias.local')
+stamp=$(date +%Y%m%d-%H%M%S)
 
-# shellcheck disable=SC2088 # a label, not a path
 link_list=$(printf '~/%s ' "${links[@]}")
 
 keys=(packages ohmyzsh shell fonts links)
@@ -170,8 +173,76 @@ if [ "$assume_yes" = no ]; then
     done
 fi
 
+# --------------------------------------------------- existing configs ---
+# Looked at before anything changes: what gets replaced, its .bak, and lines
+# that exist only in the user's copy. Links are never followed for writing.
+replace_plan=(); local_notes=(); config_problem=''
+redact() {
+    # Shows a setting without its value: values can hold paths, tokens or passwords.
+    awk -v max=60 '{ if (match($0, /=/)) $0 = substr($0, 1, RSTART) "…"; if (length($0) > max) $0 = substr($0, 1, max) "…"; print }'
+}
+only_in_user() {
+    # Non-blank, non-comment lines of $1 that the repo file $2 doesn't have.
+    awk 'NR == FNR { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); repo[$0] = 1; next }
+         { line = $0; sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
+           if (line != "" && line !~ /^#/ && !(line in repo)) printf "%d\t%s\n", FNR, line }' "$2" "$1"
+}
+inspect_configs() {
+    local rel dest source_file parent target kind lines numbers settings count
+    replace_plan=(); local_notes=(); config_problem=''
+    for rel in "${links[@]}"; do
+        source_file=$repo/linux/$rel
+        dest=$HOME/$rel
+        parent=$(dirname -- "$rel")
+        while [ "$parent" != . ]; do
+            if [ -L "$HOME/$parent" ]; then
+                config_problem="~/$parent is a symlink; move it away or link ~/$rel yourself, so nothing writes through it."
+                return
+            fi
+            parent=$(dirname -- "$parent")
+        done
+        if [ -L "$dest" ]; then
+            target=$(readlink -- "$dest")
+            [ "$target" != "$source_file" ] || continue
+            kind="link to $target"
+        elif [ -d "$dest" ]; then
+            config_problem="~/$rel is a directory; move it away first."
+            return
+        elif [ -e "$dest" ]; then
+            if cmp -s -- "$dest" "$source_file"; then kind='same as the repo'; else kind='differs from the repo'; fi
+        else
+            continue
+        fi
+        replace_plan+=("~/$rel ($kind) -> backup ~/$rel.$stamp.bak")
+        if [ -n "${local_file[$rel]:-}" ] && [ -f "$dest" ]; then
+            lines=$(only_in_user "$dest" "$source_file")
+            [ -n "$lines" ] || continue
+            count=$(printf '%s\n' "$lines" | wc -l)
+            numbers=$(printf '%s\n' "$lines" | cut -f1 | head -n 12 | paste -sd ',' - | sed 's/,/, /g')
+            settings=$(printf '%s\n' "$lines" | cut -f2- | grep -E '^(export |alias |path|PATH|source |\. |eval |fpath)' | redact | head -n 6 | paste -sd ';' - | sed 's/;/; /g' || true)
+            [ "$count" -le 12 ] || numbers="$numbers, …"
+            local_notes+=("~/$rel: $count line(s) not in the new file (line $numbers)${settings:+, e.g. $settings}. Kept in ~/$rel.$stamp.bak; move what you still need into ${local_file[$rel]}.")
+        fi
+    done
+}
+show_config_plan() {
+    [ "${answer[links]}" = yes ] || return 0
+    if [ "${#replace_plan[@]}" -gt 0 ]; then
+        printf '\n  Existing configs that step 5 replaces (also kept in ~/.dotfiles-backup/%s/):\n' "$stamp"
+        printf '    %s\n' "${replace_plan[@]}"
+    fi
+    if [ "${#local_notes[@]}" -gt 0 ]; then
+        printf '\n  %sCheck:%s machine-local settings are not carried over automatically.\n' "$bold" "$reset"
+        printf '    %s\n' "${local_notes[@]}"
+    fi
+}
+inspect_configs
+
 # A plan that would fail half-way is refused before anything changes.
 validate() {
+    if [ "${answer[links]}" = yes ] && [ -n "$config_problem" ]; then
+        echo "$config_problem"; return
+    fi
     if [ "${answer[packages]}" = no ]; then
         for tool in curl zsh; do
             if ! command -v "$tool" >/dev/null; then
@@ -194,6 +265,7 @@ summary() {
 
 while :; do
     summary
+    show_config_plan
     problem=$(validate)
     if [ -n "$problem" ]; then
         printf '\n  %s%s%s %s\n' "$red" "$failed" "$reset" "$problem"
@@ -229,9 +301,12 @@ login_shell=$(getent passwd "$(id -un)" | cut -d: -f7)
 need_sudo=no
 [ "${#want_packages[@]}${#want_fontconfig[@]}" = 00 ] || need_sudo=yes
 if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then need_sudo=yes; fi
+sudo_keeper=''
 if [ "$need_sudo" = yes ]; then
     printf '\n'
     sudo -v || die 'sudo did not work; your user needs sudo rights for packages and the login shell.'
+    # Keep the sudo timestamp fresh during long apt runs; ends with this script.
+    (while sleep 50; do sudo -n -v 2>/dev/null || exit 0; done) & sudo_keeper=$!
 fi
 
 # ------------------------------------------------------------------- log ---
@@ -245,18 +320,20 @@ find "$state_dir/logs" -maxdepth 1 -type f -name 'install-linux-*.log' | LC_ALL=
 printf 'dotfiles install linux, %s, %s\n' "$(date -u +%FT%TZ)" "$new_commit" >> "$log"
 
 backup_dir=''
-backup_root=$HOME/.dotfiles-backup/$(date +%Y%m%d-%H%M%S)
+backup_root=$HOME/.dotfiles-backup/$stamp
 backup() {
     # Moves (or copies with "copy") one path under $HOME into this run's backup.
     local path=$1 mode=${2:-move} rel
     rel=${path#"$HOME"/}
     backup_dir=$backup_root
     mkdir -p "$backup_dir/$(dirname -- "$rel")"
-    if [ "$mode" = copy ]; then cp -a -- "$path" "$backup_dir/$rel"; else mv -- "$path" "$backup_dir/$rel"; fi
+    if [ -e "$backup_dir/$rel" ] || [ -L "$backup_dir/$rel" ]; then fail "$backup_dir/$rel already exists; not overwriting a backup."; fi
+    if [ "$mode" = copy ]; then cp -a -- "$path" "$backup_dir/$rel" 2>> "$log" || fail "Backup of $path failed; nothing was replaced."
+    else mv -- "$path" "$backup_dir/$rel" 2>> "$log" || fail "Backup of $path failed; nothing was replaced."; fi
     printf 'backup: %s -> %s\n' "$path" "$backup_dir/$rel" >> "$log"
 }
 
-changes=()
+changes=(); warnings=(); replaced=()
 
 # ----------------------------------------------------------------- steps ---
 spinner_pid=''; command_pid=''; step_name=''
@@ -301,7 +378,7 @@ interrupt() {
     show_error 'Install interrupted.'
     exit "$1"
 }
-trap 'stop_spinner' EXIT
+trap 'stop_spinner; [ -z "$sudo_keeper" ] || kill "$sudo_keeper" 2>/dev/null || true' EXIT
 trap 'interrupt 130' INT
 trap 'interrupt 143' HUP TERM
 run_logged() {
@@ -318,7 +395,11 @@ run() {
 }
 fail() { printf '%s\n' "$1" >> "$log"; show_error "$1"; exit 1; }
 
+sudo_ready() {
+    sudo -n true 2>/dev/null || fail 'sudo needs the password again (its timeout ran out); run ./install.sh linux again.'
+}
 apt_install() {
+    sudo_ready
     run sudo -n apt-get update
     run sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
 }
@@ -353,9 +434,10 @@ if [ "${answer[packages]}" = yes ]; then
         done_packages+=("lazydocker $lazydocker_version")
     fi
     # tealdeer needs its page cache once; later updates are `tldr --update`.
-    if command -v tldr >/dev/null && [ ! -d "${XDG_CACHE_HOME:-$HOME/.cache}/tealdeer" ]; then
-        run tldr --update
-        done_packages+=('tldr pages')
+    # Optional: a failure here is a warning, not a stop.
+    if command -v tldr >/dev/null && [ ! -d "${XDG_CACHE_HOME:-$HOME/.cache}/tealdeer/tldr-pages" ]; then
+        if run_logged tldr --update; then done_packages+=('tldr pages')
+        else warnings+=('tldr --update failed (network?); run it later, tldr works without pages until then.'); fi
     fi
     # zoxide replaces zsh-z: carry the old directory history over, once, while
     # zoxide has no database of its own yet. ~/.z itself stays as it is.
@@ -364,10 +446,11 @@ if [ "${answer[packages]}" = yes ]; then
         # zoxide 0.9 (trixie) takes --from z PATH; 0.10 reads ~/.z itself.
         zoxide_help=$(zoxide import --help 2>/dev/null || true)
         case $zoxide_help in
-            *--from*) run zoxide import --from z "$HOME/.z" ;;
-            *) run zoxide import zsh-z ;;
+            *--from*) zoxide_import=(zoxide import --from z "$HOME/.z") ;;
+            *) zoxide_import=(zoxide import zsh-z) ;;
         esac
-        done_packages+=('z history imported into zoxide')
+        if run_logged "${zoxide_import[@]}"; then done_packages+=('z history imported into zoxide')
+        else warnings+=("importing ~/.z into zoxide failed; it's optional, see the log (${zoxide_import[*]})."); fi
     fi
     if [ "${#done_packages[@]}" -eq 0 ]; then
         passed "all $package_count installed, lazydocker $lazydocker_version"
@@ -435,6 +518,7 @@ if [ "${answer[shell]}" = yes ]; then
     if [ "$login_shell" = "$zsh_path" ]; then
         passed "already $zsh_path"
     else
+        sudo_ready
         run sudo -n chsh -s "$zsh_path" "$(id -un)"
         changes+=("login shell: $login_shell $arrow $zsh_path")
         passed "$login_shell $arrow $zsh_path"
@@ -476,12 +560,19 @@ if [ "${answer[links]}" = yes ]; then
         dest=$HOME/$rel
         [ -f "$source_file" ] || fail "Missing in the repo: linux/$rel"
         [ "$(readlink -- "$dest" 2>/dev/null || true)" != "$source_file" ] || continue
-        if [ -e "$dest" ] || [ -L "$dest" ]; then backup "$dest"; fi
+        if [ -e "$dest" ] || [ -L "$dest" ]; then
+            [ ! -d "$dest" ] || [ -L "$dest" ] || fail "~/$rel is a directory; nothing was replaced."
+            bak=$dest.$stamp.bak
+            # Never overwrite a backup; cp -P copies a symlink itself, not its target.
+            if [ -e "$bak" ] || [ -L "$bak" ]; then fail "$bak already exists; nothing was replaced."; fi
+            cp -P -p -- "$dest" "$bak" 2>> "$log" || fail "Backup of ~/$rel failed; nothing was replaced."
+            backup "$dest"
+            replaced+=("~/$rel -> $bak")
+        fi
         mkdir -p "$(dirname -- "$dest")"
-        ln -s -- "$source_file" "$dest"
+        ln -sn -- "$source_file" "$dest"
         printf 'link: %s -> %s\n' "$dest" "$source_file" >> "$log"
-        # shellcheck disable=SC2088 # a label, not a path
-        linked+=("~/$rel")
+                linked+=("~/$rel")
     done
     if [ "${#linked[@]}" -eq 0 ]; then
         passed 'all linked'
@@ -504,6 +595,18 @@ if [ "${#changes[@]}" -eq 0 ]; then
 else
     printf '  Changed:\n'
     printf '    %s\n' "${changes[@]}"
+fi
+if [ "${#replaced[@]}" -gt 0 ]; then
+    printf '  Replaced configs (originals kept):\n'
+    printf '    %s\n' "${replaced[@]}"
+fi
+if [ "${#replaced[@]}" -gt 0 ] && [ "${#local_notes[@]}" -gt 0 ]; then
+    printf '  %sCheck:%s\n' "$bold" "$reset"
+    printf '    %s\n' "${local_notes[@]}"
+fi
+if [ "${#warnings[@]}" -gt 0 ]; then
+    printf '  Warnings:\n'
+    printf '    %s\n' "${warnings[@]}"
 fi
 [ -z "$backup_dir" ] || printf '  Backups: %s\n' "$backup_dir"
 printf '  Log:     %s\n' "$log"

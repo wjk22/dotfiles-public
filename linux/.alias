@@ -19,7 +19,7 @@ command -v fd >/dev/null || { command -v fdfind >/dev/null && alias fd='fdfind';
 alias el='eza -l'
 alias es='eza'
 alias esa='eza -la'
-alias lla='lsa -la'
+alias lla='ls -la'
 alias ll='ls -l'
 alias lt='du -sh * | sort -h'
 
