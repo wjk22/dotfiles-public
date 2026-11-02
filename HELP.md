@@ -36,8 +36,10 @@ On Debian, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names
   |---|---|
   | `eal` | edit the shared `~/.alias` and reload it |
   | `eall` | edit personal `~/.alias.local` and reload aliases (use this for your own aliases) |
-  | `el` `es` `esa` | eza long / short / long with hidden |
-  | `ll` `lla` `lt` | ls -l / all / folder sizes sorted |
+  | `ls` `es` | eza listing with automatic icons and soft colours |
+  | `ll` `el` / `lla` `esa` | eza long / long with hidden |
+  | `command ls --color=auto` | GNU ls with the historical 1996 palette |
+  | `lt` | folder sizes sorted |
   | `v` `vi` `vim` `evi` | nvim / edit the nvim config |
   | `nmutt` | NeoMutt mail client |
   | `g` `c` `h` `hh` | git / clear / history / last 10 |

@@ -1,0 +1,144 @@
+# Matches windows/.config/powershell/wjk-classic.colors.psd1.
+# GNU ls keeps the historical .dir_colors; the eza wrapper excludes LS_COLORS.
+filekinds:
+  normal: {foreground: "#D8D8D8"}
+  directory: {foreground: "#D8D8D8", is_bold: false}
+  mount_point: {foreground: "#D8D8D8", is_bold: false, is_underline: false}
+  symlink: {foreground: "#66CCCC"}
+  executable: {foreground: "#D7827E", is_bold: false}
+file_type:
+  compressed: {foreground: "#8CACE2"}
+  image: {foreground: "#C58BD9"}
+  video: {foreground: "#D8D8D8", is_bold: false}
+  music: {foreground: "#C78CAD"}
+  lossless: {foreground: "#C78CAD", is_bold: false}
+  document: {foreground: "#89C6A5"}
+  source: {foreground: "#7DBEC1"}
+  build: {foreground: "#84AED5", is_underline: false}
+filenames:
+  "downloads": {filename: {foreground: "#C9BFA7", is_bold: false}, icon: {glyph: "", style: {foreground: "#C9BFA7"}}}
+  "Downloads": {filename: {foreground: "#C9BFA7", is_bold: false}, icon: {glyph: "", style: {foreground: "#C9BFA7"}}}
+  "documents": {filename: {foreground: "#88BFE0", is_bold: false}, icon: {glyph: "", style: {foreground: "#88BFE0"}}}
+  "Documents": {filename: {foreground: "#88BFE0", is_bold: false}, icon: {glyph: "", style: {foreground: "#88BFE0"}}}
+  "docs": {filename: {foreground: "#88BFE0", is_bold: false}, icon: {glyph: "", style: {foreground: "#88BFE0"}}}
+  "Docs": {filename: {foreground: "#88BFE0", is_bold: false}, icon: {glyph: "", style: {foreground: "#88BFE0"}}}
+  "desktop": {filename: {foreground: "#71D5D5", is_bold: false}, icon: {glyph: "", style: {foreground: "#71D5D5"}}}
+  "Desktop": {filename: {foreground: "#71D5D5", is_bold: false}, icon: {glyph: "", style: {foreground: "#71D5D5"}}}
+  "contacts": {filename: {foreground: "#71D5D5", is_bold: false}, icon: {glyph: "", style: {foreground: "#71D5D5"}}}
+  "Contacts": {filename: {foreground: "#71D5D5", is_bold: false}, icon: {glyph: "", style: {foreground: "#71D5D5"}}}
+  "favorites": {filename: {foreground: "#E6C45A", is_bold: false}, icon: {glyph: "", style: {foreground: "#E6C45A"}}}
+  "Favorites": {filename: {foreground: "#E6C45A", is_bold: false}, icon: {glyph: "", style: {foreground: "#E6C45A"}}}
+  "links": {filename: {foreground: "#D986A8", is_bold: false}, icon: {style: {foreground: "#D986A8"}}}
+  "Links": {filename: {foreground: "#D986A8", is_bold: false}, icon: {style: {foreground: "#D986A8"}}}
+  "music": {filename: {foreground: "#C78CAD", is_bold: false}, icon: {glyph: "", style: {foreground: "#C78CAD"}}}
+  "Music": {filename: {foreground: "#C78CAD", is_bold: false}, icon: {glyph: "", style: {foreground: "#C78CAD"}}}
+  "songs": {filename: {foreground: "#C78CAD", is_bold: false}, icon: {glyph: "", style: {foreground: "#C78CAD"}}}
+  "Songs": {filename: {foreground: "#C78CAD", is_bold: false}, icon: {glyph: "", style: {foreground: "#C78CAD"}}}
+  "pictures": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "Pictures": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "photos": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "Photos": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "images": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "Images": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {glyph: "", style: {foreground: "#C58BD9"}}}
+  "videos": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {glyph: "", style: {foreground: "#D8D8D8"}}}
+  "Videos": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {glyph: "", style: {foreground: "#D8D8D8"}}}
+  "movies": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {glyph: "", style: {foreground: "#D8D8D8"}}}
+  "Movies": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {glyph: "", style: {foreground: "#D8D8D8"}}}
+  "onedrive": {filename: {foreground: "#B0BAC5", is_bold: false}, icon: {style: {foreground: "#B0BAC5"}}}
+  "Onedrive": {filename: {foreground: "#B0BAC5", is_bold: false}, icon: {style: {foreground: "#B0BAC5"}}}
+  "src": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "Src": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "development": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "Development": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "projects": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "Projects": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "bin": {filename: {foreground: "#88CDD2", is_bold: false}, icon: {style: {foreground: "#88CDD2"}}}
+  "Bin": {filename: {foreground: "#88CDD2", is_bold: false}, icon: {style: {foreground: "#88CDD2"}}}
+  "tests": {filename: {foreground: "#9AC5CD", is_bold: false}, icon: {style: {foreground: "#9AC5CD"}}}
+  "Tests": {filename: {foreground: "#9AC5CD", is_bold: false}, icon: {style: {foreground: "#9AC5CD"}}}
+  "applications": {filename: {foreground: "#DDA090", is_bold: false}, icon: {style: {foreground: "#DDA090"}}}
+  "Applications": {filename: {foreground: "#DDA090", is_bold: false}, icon: {style: {foreground: "#DDA090"}}}
+  "apps": {filename: {foreground: "#DDA090", is_bold: false}, icon: {style: {foreground: "#DDA090"}}}
+  "Apps": {filename: {foreground: "#DDA090", is_bold: false}, icon: {style: {foreground: "#DDA090"}}}
+  "demo": {filename: {foreground: "#AE9AD8", is_bold: false}, icon: {style: {foreground: "#AE9AD8"}}}
+  "Demo": {filename: {foreground: "#AE9AD8", is_bold: false}, icon: {style: {foreground: "#AE9AD8"}}}
+  "samples": {filename: {foreground: "#AE9AD8", is_bold: false}, icon: {style: {foreground: "#AE9AD8"}}}
+  "Samples": {filename: {foreground: "#AE9AD8", is_bold: false}, icon: {style: {foreground: "#AE9AD8"}}}
+  "fonts": {filename: {foreground: "#D986A8", is_bold: false}, icon: {style: {foreground: "#D986A8"}}}
+  "Fonts": {filename: {foreground: "#D986A8", is_bold: false}, icon: {style: {foreground: "#D986A8"}}}
+  "media": {filename: {foreground: "#C1BEC0", is_bold: false}, icon: {style: {foreground: "#C1BEC0"}}}
+  "Media": {filename: {foreground: "#C1BEC0", is_bold: false}, icon: {style: {foreground: "#C1BEC0"}}}
+  "windows": {filename: {foreground: "#84AED5", is_bold: false}, icon: {style: {foreground: "#84AED5"}}}
+  "Windows": {filename: {foreground: "#84AED5", is_bold: false}, icon: {style: {foreground: "#84AED5"}}}
+  "users": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "Users": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "output": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  "Output": {filename: {foreground: "#80C99A", is_bold: false}, icon: {style: {foreground: "#80C99A"}}}
+  ".config": {filename: {foreground: "#8DBCA8", is_bold: false}, icon: {glyph: "", style: {foreground: "#8DBCA8"}}}
+  ".cache": {filename: {foreground: "#8DBCA8", is_bold: false}, icon: {style: {foreground: "#8DBCA8"}}}
+  ".vscode": {filename: {foreground: "#8DB7D6", is_bold: false}, icon: {style: {foreground: "#8DB7D6"}}}
+  ".vscode-shared": {filename: {foreground: "#8DB7D6", is_bold: false}, icon: {style: {foreground: "#8DB7D6"}}}
+  ".git": {filename: {foreground: "#CD7C70", is_bold: false}, icon: {style: {foreground: "#CD7C70"}}}
+  ".github": {filename: {foreground: "#B0BAC5", is_bold: false}, icon: {style: {foreground: "#B0BAC5"}}}
+  "github": {filename: {foreground: "#B0BAC5", is_bold: false}, icon: {style: {foreground: "#B0BAC5"}}}
+  "Github": {filename: {foreground: "#B0BAC5", is_bold: false}, icon: {style: {foreground: "#B0BAC5"}}}
+  "node_modules": {filename: {foreground: "#99AF7A", is_bold: false}, icon: {style: {foreground: "#99AF7A"}}}
+  ".terraform": {filename: {foreground: "#AD9AD6", is_bold: false}, icon: {style: {foreground: "#AD9AD6"}}}
+  ".azure": {filename: {foreground: "#71D5D5", is_bold: false}, icon: {glyph: "", style: {foreground: "#71D5D5"}}}
+  ".aws": {filename: {foreground: "#DDA66C", is_bold: false}, icon: {glyph: "", style: {foreground: "#DDA66C"}}}
+  ".docker": {filename: {foreground: "#84AED5", is_bold: false}, icon: {glyph: "", style: {foreground: "#84AED5"}}}
+  ".kube": {filename: {foreground: "#84AED5", is_bold: false}, icon: {style: {foreground: "#84AED5"}}}
+extensions:
+  "zip": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "tar": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "gz": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "tgz": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "7z": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "rar": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "xz": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "bz2": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "zst": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "deb": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "rpm": {filename: {foreground: "#8CACE2", is_bold: false}, icon: {style: {foreground: "#8CACE2"}}}
+  "exe": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "com": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "bat": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "cmd": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "btm": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "msi": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "ps1": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "psm1": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "sh": {filename: {foreground: "#D7827E", is_bold: false}, icon: {style: {foreground: "#D7827E"}}}
+  "jpg": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "jpeg": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "png": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "gif": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "bmp": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "webp": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "svg": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "tif": {filename: {foreground: "#C58BD9", is_bold: false}, icon: {style: {foreground: "#C58BD9"}}}
+  "mp4": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "mkv": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "avi": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "mov": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "webm": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "mpg": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "mpeg": {filename: {foreground: "#D8D8D8", is_bold: false}, icon: {style: {foreground: "#D8D8D8"}}}
+  "txt": {filename: {foreground: "#89C6A5", is_bold: false}, icon: {style: {foreground: "#89C6A5"}}}
+  "doc": {filename: {foreground: "#89C6A5", is_bold: false}, icon: {style: {foreground: "#89C6A5"}}}
+  "docx": {filename: {foreground: "#89C6A5", is_bold: false}, icon: {style: {foreground: "#89C6A5"}}}
+  "pdf": {filename: {foreground: "#89C6A5", is_bold: false}, icon: {style: {foreground: "#89C6A5"}}}
+  "md": {filename: {foreground: "#89C6A5", is_bold: false}, icon: {style: {foreground: "#89C6A5"}}}
+  "json": {filename: {foreground: "#D9BC69", is_bold: false}, icon: {style: {foreground: "#D9BC69"}}}
+  "yaml": {filename: {foreground: "#D9BC69", is_bold: false}, icon: {style: {foreground: "#D9BC69"}}}
+  "yml": {filename: {foreground: "#D9BC69", is_bold: false}, icon: {style: {foreground: "#D9BC69"}}}
+  "log": {filename: {foreground: "#C5B992", is_bold: false}, icon: {style: {foreground: "#C5B992"}}}
+  "conf": {filename: {foreground: "#89BCE0", is_bold: false}, icon: {style: {foreground: "#89BCE0"}}}
+  "config": {filename: {foreground: "#89BCE0", is_bold: false}, icon: {style: {foreground: "#89BCE0"}}}
+  "ini": {filename: {foreground: "#89BCE0", is_bold: false}, icon: {style: {foreground: "#89BCE0"}}}
+  "go": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}
+  "py": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}
+  "rs": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}
+  "cs": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}
+  "js": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}
+  "ts": {filename: {foreground: "#7DBEC1", is_bold: false}, icon: {style: {foreground: "#7DBEC1"}}}

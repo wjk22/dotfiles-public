@@ -95,10 +95,26 @@ Tmux uses **Ctrl-a** as its prefix. `Ctrl-a v` / `Ctrl-a h` split panes;
 `Ctrl-Space` zooms a pane. The clipboard configuration uses OSC 52 for terminals
 that support it, including Windows Terminal.
 
-The directory palette keeps the original colours: blue directories, cyan
-symlinks, green executables, red archives, magenta images and white videos.
-GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses it too.
-Modern extensions such as `.zst`, `.webp` and `.mp4` follow the same scheme.
+Everyday listings (`ls`, `ll`, `lla`, `el`, `es`, `esa`) use eza with automatic
+Nerd Font icons. Ordinary directories are white; special folders such as
+Downloads, Documents, Pictures, `.aws` and `.docker` have the same softer colours
+as the Windows Terminal-Icons theme. Archives are blue, executables red, images
+magenta and links cyan. Writable WSL folders keep a plain background. Icons and
+colours are automatic, so piped listings stay plain.
+
+The readable theme is [`linux/.config/eza/theme.yml`](linux/.config/eza/theme.yml).
+The shell points eza at this shared file; root uses the copy in its private
+snapshot. The eza wrapper clears `LS_COLORS`/`EXA_COLORS` only for that command,
+so the historical palette cannot override the theme. Personal `EZA_COLORS` or
+`EZA_CONFIG_DIR` settings in `~/.zshrc.local` can override it. Eza's
+[theme configuration](https://github.com/eza-community/eza/blob/v0.21.0/man/eza_colors-explanation.5.md)
+is supported by Debian 13's eza 0.21; glyphs can differ slightly between versions.
+
+`command ls --color=auto` still invokes GNU ls with the original 1996 palette:
+blue directories, cyan links, green executables, red archives, magenta images and
+white videos. GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses
+it too. Modern extensions follow the original groups. If eza is unavailable,
+the listing aliases fall back to GNU ls.
 
 ### The same shell for root
 
@@ -276,7 +292,7 @@ A few favourites:
 
 - `cat file` or `bcat file`: bat, called `batcat` on Debian. For the original
   reader, use `command cat` on Linux or `Get-Content` in PowerShell.
-- `el`, `es`, `esa`: eza listings; `z project` / `zi project`: jump with zoxide.
+- `ls`, `ll`, `lla`, `el`, `es`, `esa`: eza listings with icons; `z project` / `zi project`: jump with zoxide.
 - `v` / `vim`: Neovim. This repo installs the program and aliases, not its config.
 - `help-dots`: the full cheat sheet. `q` closes the viewer.
 - Windows: `gsudo command` elevates one command; `tc` opens Total Commander,

@@ -3,7 +3,7 @@ if (( EUID == 0 )); then
   export HOME=/root
   export XDG_CONFIG_HOME=/root/.config XDG_CACHE_HOME=/root/.cache
   export XDG_DATA_HOME=/root/.local/share XDG_STATE_HOME=/root/.local/state
-  unset ZSH_CUSTOM ZSH_CACHE_DIR ZSH_COMPDUMP ZDOTDIR
+  unset ZSH_CUSTOM ZSH_CACHE_DIR ZSH_COMPDUMP ZDOTDIR EZA_CONFIG_DIR EZA_COLORS EXA_COLORS
   # Debian system functions only; do not inherit a normal user's FPATH.
   fpath=(/usr/local/share/zsh/site-functions /usr/share/zsh/vendor-functions
          /usr/share/zsh/vendor-completions /usr/share/zsh/functions/*(N/))

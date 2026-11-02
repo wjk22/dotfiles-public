@@ -25,12 +25,29 @@ if command -v bat >/dev/null; then
   alias cat='bat'
 fi
 
-# Listings
-alias el='eza -l'
-alias es='eza'
-alias esa='eza -la'
-alias lla='ls -la'
-alias ll='ls -l'
+# Listings: icons and the Windows-style palette in interactive use.
+# Keep GNU ls (and its historical LS_COLORS) available via `command ls`.
+if command -v eza >/dev/null; then
+  export EZA_CONFIG_DIR="${EZA_CONFIG_DIR:-$DOTFILES/linux/.config/eza}"
+  function eza {
+    # Eza otherwise lets LS_COLORS override the YAML theme. Scope the reset to
+    # this command; explicit personal EZA_COLORS overrides still work.
+    LS_COLORS= EXA_COLORS= command eza "$@"
+  }
+  alias ls='eza --icons=auto'
+  alias ll='eza --icons=auto -l'
+  alias lla='eza --icons=auto -la'
+  alias el='eza --icons=auto -l'
+  alias es='eza --icons=auto'
+  alias esa='eza --icons=auto -la'
+else
+  alias ls='ls --color=auto'
+  alias ll='ls -l'
+  alias lla='ls -la'
+  alias el='ls -l'
+  alias es='ls'
+  alias esa='ls -la'
+fi
 alias lt='du -sh * | sort -h'
 
 # Other

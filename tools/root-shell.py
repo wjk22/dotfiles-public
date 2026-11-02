@@ -17,7 +17,7 @@ ROOT = Path('/root')
 FILES = (
     'install.sh', 'HELP.md', 'tools/root-shell.py',
     'linux/.zshrc', 'linux/.alias', 'linux/.p10k.zsh',
-    'linux/.dir_colors', 'linux/.config/tmux/tmux.conf',
+    'linux/.dir_colors', 'linux/.config/tmux/tmux.conf', 'linux/.config/eza/theme.yml',
 )
 MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf')
 SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
