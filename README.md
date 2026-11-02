@@ -145,6 +145,9 @@ need a separate font installation; the terminal renders both sessions.
 neomutt
 ```
 
+In zsh, `nmutt` is the short alias for `neomutt`, like `nvim` for Neovim.
+Open a new shell or run `source ~/.alias` to load it.
+
 The mail mode installs only the `neomutt` package if needed and creates a private
 loader in `~/.config/neomutt/neomuttrc` (honouring `XDG_CONFIG_HOME`). It requires
 an existing `nvim` executable and does not install or change your editor config.

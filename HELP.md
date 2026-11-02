@@ -39,6 +39,7 @@ On Debian, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names
   | `el` `es` `esa` | eza long / short / long with hidden |
   | `ll` `lla` `lt` | ls -l / all / folder sizes sorted |
   | `v` `vi` `vim` `evi` | nvim / edit the nvim config |
+  | `nmutt` | NeoMutt mail client |
   | `g` `c` `h` `hh` | git / clear / history / last 10 |
   | `..` `...` | up one / two folders |
   | `cpv` | copy with a progress bar (rsync) |
@@ -87,7 +88,7 @@ oh-my-zsh's tmux plugin adds `ta` (attach), `ts` (new session), `tl` (list) and 
 - `./install.sh root`: preview/install the shared shell as a private root-owned
   snapshot; run as your normal user. No user checkout or plugins are sourced by root.
 - `./install.sh mail`: preview/install NeoMutt presentation and private account
-  files. Run `neomutt` afterwards; configure accounts in `~/.config/neomutt/accounts.local`.
+  files. Run `nmutt` (or `neomutt`) afterwards; configure accounts in `~/.config/neomutt/accounts.local`.
 - NeoMutt: `F2` sidebar, `F3`/`F4` select mailbox, `F5` open. Compose with the existing
   Neovim config; personal bindings/settings go in `~/.config/neomutt/settings.local`.
 

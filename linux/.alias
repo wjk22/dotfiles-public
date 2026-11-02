@@ -8,6 +8,9 @@ else
 fi
 alias evi='v ~/.config/nvim'
 
+# Mail: short name to match nvim.
+alias nmutt='neomutt'
+
 # Shared aliases: eal. Personal overrides: eall (loaded last below).
 alias eal='v ~/.alias ; source ~/.alias'
 alias eall='v ~/.alias.local ; source ~/.alias'
