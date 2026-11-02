@@ -100,7 +100,7 @@ Everyday listings (`ls`, `ll`, `lla`, `el`, `es`, `esa`) use eza with automatic
 Nerd Font icons. Ordinary directories are white; special folders such as
 Downloads, Documents, Pictures, `.aws` and `.docker` have the same softer colours
 as the Windows Terminal-Icons theme. Archives are blue, executables red, images
-magenta and links cyan. Permissions and dates use muted white. Writable WSL
+magenta and links cyan. Permissions, owners, file sizes and dates use muted white. Writable WSL
 folders keep a plain background. Icons and
 colours are automatic, so piped listings stay plain.
 

@@ -9,6 +9,26 @@ filekinds:
 # Quiet metadata, like the Windows listing.
 punctuation: {foreground: "#C0C0C0", is_bold: false}
 date: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+users:
+  user_you: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  user_root: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  user_other: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_yours: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_root: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  group_other: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+size:
+  major: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  minor: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  number_byte: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  number_kilo: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  number_mega: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  number_giga: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  number_huge: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  unit_byte: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  unit_kilo: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  unit_mega: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  unit_giga: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
+  unit_huge: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
 perms:
   user_read: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
   user_write: {foreground: "#C0C0C0", is_bold: false, is_underline: false}
