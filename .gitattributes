@@ -1,0 +1,5 @@
+# LF everywhere, also in a Windows-side clone: install.sh breaks with CRLF,
+# and PowerShell reads LF files fine.
+* text=auto eol=lf
+*.ttf binary
+*.png binary

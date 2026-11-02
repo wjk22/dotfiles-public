@@ -1,0 +1,15 @@
+# Results worth keeping for a while (logs, screenshots); never committed
+/temp/
+
+# Machine-local shell settings; the repo files source them if present
+.zshrc.local
+.alias.local
+
+# Editor droppings
+*~
+*.un~
+*.swp
+*.swo
+*.shada
+.DS_Store
+Thumbs.db
