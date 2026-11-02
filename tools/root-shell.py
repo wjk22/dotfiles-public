@@ -133,6 +133,7 @@ def receive(revision, yes):
     secure(destination, tree=True)
     environment = {'HOME': '/root', 'USER': 'root', 'LOGNAME': 'root', 'PATH': SAFE_PATH,
                    'LANG': 'C.UTF-8', 'TERM': os.environ.get('TERM', 'xterm-256color')}
+    os.chdir(ROOT)
     os.execve('/bin/bash', ['bash', str(destination / 'install.sh'), '--root-apply', '--yes'], environment)
 
 
