@@ -149,6 +149,44 @@ class MailTests(unittest.TestCase):
         return subprocess.run(['python3', str(REPO / 'tools/install-mail.py'), answer],
                               input='q\n', text=True, capture_output=True, env=self.env, timeout=20)
 
+    def main_install(self, mail=None):
+        # Exercise the real main installer and helper with other steps disabled.
+        # Git only supplies read-only checkout metadata; sudo must never run.
+        git = self.bin / 'git'
+        git.write_text('''#!/bin/sh
+case "$*" in
+  *"status --porcelain") exit 0;;
+  *"rev-parse HEAD") echo 0123456789012345678901234567890123456789;;
+  *) echo "Unexpected git operation" >&2; exit 98;;
+esac
+''')
+        git.chmod(0o755)
+        sudo = self.bin / 'sudo'
+        sudo.write_text('#!/bin/sh\necho "Unexpected sudo operation" >&2\nexit 99\n')
+        sudo.chmod(0o755)
+        state = self.home / '.local/state/dotfiles'
+        state.mkdir(parents=True)
+        choices = ''.join(key + '=no\n' for key in ('packages', 'ohmyzsh', 'shell', 'fonts', 'links'))
+        if mail is not None:
+            choices += 'mail=' + mail + '\n'
+        (state / 'linux.state').write_text(choices)
+        env = dict(self.env, XDG_STATE_HOME=str(self.home / '.local/state'))
+        return subprocess.run(['bash', str(REPO / 'install.sh'), '--yes'],
+                              capture_output=True, text=True, env=env, timeout=20)
+
+    def test_main_installer_includes_mail_by_default(self):
+        result = self.main_install()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.home / '.config/neomutt/neomuttrc').is_file())
+        self.assertIn('mail=yes', (self.home / '.local/state/dotfiles/linux.state').read_text())
+        self.assertIn('NeoMutt preview:', result.stdout)
+
+    def test_main_installer_remembers_mail_no(self):
+        result = self.main_install('no')
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse((self.home / '.config/neomutt').exists())
+        self.assertIn('mail=no', (self.home / '.local/state/dotfiles/linux.state').read_text())
+
     def test_fresh_and_idempotent(self):
         result = self.install()
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

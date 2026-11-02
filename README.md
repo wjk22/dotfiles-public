@@ -60,9 +60,9 @@ become the suggestions. `--yes` on Linux and `-Yes` on Windows accept those
 suggestions and apply without asking; they do not mean "enable every step."
 Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
 
-Two optional Linux modes are also available: `./install.sh root` for root's
-shell and `./install.sh mail` for NeoMutt. The plain `./install.sh` still only
-configures your normal account. Both optional modes need Python 3 (standard
+Two focused Linux modes are also available: `./install.sh root` for root's
+shell and `./install.sh mail` to run only the NeoMutt step. The plain
+`./install.sh` configures your normal account, including the selectable mail step. Both optional modes need Python 3 (standard
 library only) and show a preview before applying; `--yes` accepts the plan.
 
 After installation, open a new zsh or **PowerShell 7** window and run
@@ -77,8 +77,9 @@ btop, dust, gdu, duf and tealdeer. Windows package choices are configurable.
 
 ### Linux
 
-The installer offers five steps: packages, Oh My Zsh and plugins, zsh as your
-login shell, fonts, and dotfile links. Debian packages also include Neovim,
+The installer offers six steps: packages, Oh My Zsh and plugins, zsh as your
+login shell, fonts, dotfile links, and NeoMutt with its theme and Neovim composer.
+The mail step is enabled by default; choosing no is remembered for later runs. Debian packages also include Neovim,
 tmux, htop, Midnight Commander, inxi and networking tools. Lazydocker comes
 from a pinned GitHub release with a checked checksum.
 
@@ -155,6 +156,9 @@ Use `sudo -i` after installation to start root's new login shell. Root does not
 need a separate font installation; the terminal renders both sessions.
 
 ### NeoMutt and the existing Neovim composer
+
+The normal `./install.sh` includes this as step 6. To install or repair just
+the mail client and theme on an existing setup:
 
 ```sh
 ./install.sh mail

@@ -13,7 +13,7 @@ usage() {
 Usage: ./install.sh [root|mail] [--yes]
 
   Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
-  tmux, fonts and the dotfiles from linux/.
+  tmux, fonts, NeoMutt and the dotfiles from linux/.
   On Windows, run .\install.ps1 in PowerShell instead.
 
   root      same shell for root, from a private root-owned snapshot
@@ -141,7 +141,7 @@ fi
 
 # ------------------------------------------------------------- questions ---
 base_packages=(zsh tmux git curl wget ca-certificates neovim htop mc mtr-tiny tcpdump iptraf-ng
-    bind9-dnsutils rsync unzip iproute2 sl)
+    bind9-dnsutils rsync unzip iproute2 sl python3)
 # The tool set, the same on Windows (scoop); lazydocker isn't in Debian.
 tool_packages=(lazygit ripgrep fzf fd-find bat eza zoxide btop du-dust gdu duf tealdeer inxi)
 lazydocker_version=0.25.2
@@ -165,13 +165,14 @@ stamp=$(date +%Y%m%d-%H%M%S)
 
 link_list=$(printf '~/%s ' "${links[@]}")
 
-keys=(packages ohmyzsh shell fonts links)
+keys=(packages ohmyzsh shell fonts links mail)
 labels=(
     'Packages and tools (apt, lazydocker from GitHub)'
     'oh-my-zsh, plugins and p10k (install or update)'
     'zsh as login shell'
     'MesloLGS NF fonts'
     'Link the dotfiles (backup first)'
+    'NeoMutt + Gruvbox theme + existing Neovim composer'
 )
 details=(
     "${base_packages[*]} ${tool_packages[*]}; lazydocker $lazydocker_version (checksum-checked)"
@@ -179,6 +180,7 @@ details=(
     "chsh to $(command -v zsh || echo /usr/bin/zsh)"
     "$([ "$wsl" = yes ] && echo 'WSL: Windows Terminal uses Windows fonts, install.ps1 installs those' || echo 'into ~/.local/share/fonts')"
     "$link_list"
+    'neomutt package, private config with backups; accounts stay outside Git'
 )
 declare -A answer
 for key in "${keys[@]}"; do answer[$key]=yes; done
@@ -192,7 +194,7 @@ if [ "$root_mode" = yes ]; then
     keys=(ohmyzsh shell links)
     labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root shell config (backup first)')
     details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "$link_list")
-    answer[packages]=no; answer[fonts]=no
+    answer[packages]=no; answer[fonts]=no; answer[mail]=no
     answer[ohmyzsh]=yes; answer[shell]=yes; answer[links]=yes
 fi
 
@@ -283,6 +285,11 @@ validate() {
     if [ "${answer[links]}" = yes ] && [ -n "$config_problem" ]; then
         echo "$config_problem"; return
     fi
+    if [ "${answer[mail]}" = yes ] && [ "${answer[packages]}" = no ]; then
+        for tool in python3 nvim; do
+            command -v "$tool" >/dev/null || { echo "$tool is needed for mail; enable core packages or install it first."; return; }
+        done
+    fi
     if [ "${answer[packages]}" = no ]; then
         for tool in curl zsh; do
             if ! command -v "$tool" >/dev/null; then
@@ -341,6 +348,7 @@ login_shell=$(getent passwd "$(id -un)" | cut -d: -f7)
 need_sudo=no
 [ "${#want_packages[@]}${#want_fontconfig[@]}" = 00 ] || need_sudo=yes
 if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then need_sudo=yes; fi
+if [ "${answer[mail]}" = yes ] && ! command -v neomutt >/dev/null; then need_sudo=yes; fi
 sudo_keeper=''
 if [ "$need_sudo" = yes ]; then
     if [ "$root_mode" = yes ]; then
@@ -624,6 +632,13 @@ if [ "${answer[links]}" = yes ]; then
         changes+=("links: ${linked[*]}")
         passed "linked ${linked[*]}"
     fi
+fi
+
+if [ "${answer[mail]}" = yes ]; then
+    step NeoMutt 'mail client, theme and Neovim composer'
+    run /usr/bin/python3 -u "$repo/tools/install-mail.py" yes
+    changes+=('NeoMutt: package and themed configuration checked; run nmutt')
+    passed 'ready; launch nmutt (or neomutt)'
 fi
 
 # Remember this run for the next one; rewritten only when something differs.
