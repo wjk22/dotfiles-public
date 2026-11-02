@@ -92,6 +92,11 @@ dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a gi
 new_commit=$(git -C "$repo" rev-parse HEAD)
 check_ok Repo "clean at ${new_commit:0:7}"
 
+# Backups go to ~/.dotfiles-backup (private, 0700); never through a link.
+if [ -L "$HOME/.dotfiles-backup" ] || { [ -e "$HOME/.dotfiles-backup" ] && [ ! -d "$HOME/.dotfiles-backup" ]; }; then
+    die '~/.dotfiles-backup is a symlink or not a folder; move it away first, backups never go through a link.'
+fi
+
 free_kb=$(df -Pk "$HOME" | awk 'NR==2 {print $4}')
 [ "${free_kb:-0}" -ge 1000000 ] || die "Only $((${free_kb:-0} / 1000)) MB free in $HOME; the install needs at least 1 GB."
 check_ok Disk "$(awk -v k="$free_kb" 'BEGIN {printf "%.1f GB free", k*1024/1e9}')"
@@ -189,18 +194,15 @@ fi
 # Looked at before anything changes: what gets replaced, its .bak, and lines
 # that exist only in the user's copy. Links are never followed for writing.
 replace_plan=(); local_notes=(); config_problem=''
-redact() {
-    # Shows a setting without its value: values can hold paths, tokens or passwords.
-    awk -v max=60 '{ if (match($0, /=/)) $0 = substr($0, 1, RSTART) "…"; if (length($0) > max) $0 = substr($0, 1, max) "…"; print }'
-}
 only_in_user() {
-    # Non-blank, non-comment lines of $1 that the repo file $2 doesn't have.
+    # Line numbers of the non-blank, non-comment lines of $1 that the repo file
+    # $2 doesn't have. Numbers only: the lines can hold paths, tokens or passwords.
     awk 'NR == FNR { sub(/^[ \t]+/, ""); sub(/[ \t]+$/, ""); repo[$0] = 1; next }
          { line = $0; sub(/^[ \t]+/, "", line); sub(/[ \t]+$/, "", line)
-           if (line != "" && line !~ /^#/ && !(line in repo)) printf "%d\t%s\n", FNR, line }' "$2" "$1"
+           if (line != "" && line !~ /^#/ && !(line in repo)) print FNR }' "$2" "$1"
 }
 inspect_configs() {
-    local rel dest source_file parent target kind lines numbers settings count
+    local rel dest source_file parent target kind lines numbers count
     replace_plan=(); local_notes=(); config_problem=''
     for rel in "${links[@]}"; do
         source_file=$repo/linux/$rel
@@ -230,10 +232,9 @@ inspect_configs() {
             lines=$(only_in_user "$dest" "$source_file")
             [ -n "$lines" ] || continue
             count=$(printf '%s\n' "$lines" | wc -l)
-            numbers=$(printf '%s\n' "$lines" | cut -f1 | head -n 12 | paste -sd ',' - | sed 's/,/, /g')
-            settings=$(printf '%s\n' "$lines" | cut -f2- | grep -E '^(export |alias |path|PATH|source |\. |eval |fpath)' | redact | head -n 6 | paste -sd ';' - | sed 's/;/; /g' || true)
+            numbers=$(printf '%s\n' "$lines" | head -n 12 | paste -sd ',' - | sed 's/,/, /g')
             [ "$count" -le 12 ] || numbers="$numbers, …"
-            local_notes+=("~/$rel: $count line(s) not in the new file (line $numbers)${settings:+, e.g. $settings}. Kept in ~/$rel.$stamp.bak; move what you still need into ${local_file[$rel]}.")
+            local_notes+=("~/$rel: $count line(s) not in the new file (line $numbers). Kept in ~/$rel.$stamp.bak; move what you still need into ${local_file[$rel]}.")
         fi
     done
 }
@@ -335,10 +336,17 @@ backup_dir=''
 backup_root=$HOME/.dotfiles-backup/$stamp
 backup() {
     # Moves (or copies with "copy") one path under $HOME into this run's backup.
+    # The folders are private (0700); mv and cp -a keep each file's own mode.
     local path=$1 mode=${2:-move} rel
     rel=${path#"$HOME"/}
-    backup_dir=$backup_root
-    mkdir -p "$backup_dir/$(dirname -- "$rel")"
+    if [ -z "$backup_dir" ]; then
+        [ ! -L "$HOME/.dotfiles-backup" ] || fail '~/.dotfiles-backup is a symlink; nothing was replaced.'
+        [ -d "$HOME/.dotfiles-backup" ] || mkdir -m 700 -- "$HOME/.dotfiles-backup" 2>> "$log" || fail 'Cannot create ~/.dotfiles-backup; nothing was replaced.'
+        chmod 700 -- "$HOME/.dotfiles-backup" 2>> "$log" || fail 'Cannot make ~/.dotfiles-backup private; nothing was replaced.'
+        mkdir -m 700 -- "$backup_root" 2>> "$log" || fail "Cannot create $backup_root (it may exist already); nothing was replaced."
+        backup_dir=$backup_root
+    fi
+    (umask 077 && mkdir -p -- "$backup_dir/$(dirname -- "$rel")") 2>> "$log" || fail "Cannot create a folder in $backup_dir; nothing was replaced."
     if [ -e "$backup_dir/$rel" ] || [ -L "$backup_dir/$rel" ]; then fail "$backup_dir/$rel already exists; not overwriting a backup."; fi
     if [ "$mode" = copy ]; then cp -a -- "$path" "$backup_dir/$rel" 2>> "$log" || fail "Backup of $path failed; nothing was replaced."
     else mv -- "$path" "$backup_dir/$rel" 2>> "$log" || fail "Backup of $path failed; nothing was replaced."; fi
@@ -585,7 +593,7 @@ if [ "${answer[links]}" = yes ]; then
         mkdir -p "$(dirname -- "$dest")"
         ln -sn -- "$source_file" "$dest"
         printf 'link: %s -> %s\n' "$dest" "$source_file" >> "$log"
-                linked+=("~/$rel")
+        linked+=("~/$rel")
     done
     if [ "${#linked[@]}" -eq 0 ]; then
         passed 'all linked'
