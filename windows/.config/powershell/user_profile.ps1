@@ -10,7 +10,22 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
     oh-my-posh init pwsh --config "$PSScriptRoot\takuya.omp.json" | Invoke-Expression
 }
 
-if (Get-Module -ListAvailable Terminal-Icons) { Import-Module Terminal-Icons }
+# Keep the Nerd Font icons and the useful special-folder colours, but use a
+# calmer palette inspired by the old DIR_COLORS. Install the theme only once.
+# When the palette changes, bump the theme Name (and the name below).
+if (Get-Module -ListAvailable Terminal-Icons) {
+    Import-Module Terminal-Icons
+    $colorTheme = Join-Path $PSScriptRoot 'wjk-classic.colors.psd1'
+    if (Test-Path -LiteralPath $colorTheme) {
+        $installedThemes = Get-TerminalIconsColorTheme
+        if (-not $installedThemes.ContainsKey('wjk-classic-1')) {
+            Add-TerminalIconsColorTheme -LiteralPath $colorTheme -Force -Confirm:$false
+        }
+        if ((Get-TerminalIconsTheme).Color.Name -ne 'wjk-classic-1') {
+            Set-TerminalIconsTheme -ColorTheme 'wjk-classic-1' -Force
+        }
+    }
+}
 
 # PSReadLine
 Set-PSReadLineOption -EditMode Vi
