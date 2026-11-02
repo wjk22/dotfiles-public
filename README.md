@@ -14,8 +14,8 @@ The shell configuration lives here; the Neovim configuration has its own repo:
   There is no extra `linux` or `windows` argument.
 - **Editable Windows package lists:** choose your Chocolatey and Scoop packages
   in a local config file, without editing installer code.
-- **Visible Windows installs:** Scoop and Chocolatey show live output and keep
-  logs. A Chocolatey failure is reported without stopping the remaining steps.
+- **Visible installs:** Linux commands, Scoop and Chocolatey show live output
+  and keep logs. A Chocolatey failure is reported without stopping the remaining steps.
   Saying no to Chocolatey disables its optional apps too.
 - **The old colours are back:** the original 1996 palette now lives in a readable
   `dircolors` file, with matching colours for newer archive, image and video formats.
@@ -79,6 +79,10 @@ The shell uses **Oh My Zsh and Powerlevel10k**, autosuggestions, syntax
 highlighting, fzf and zoxide. It links `.zshrc`, `.alias`, `.p10k.zsh`,
 `.dir_colors` and `.config/tmux/tmux.conf` from this checkout into your home.
 Keep the checkout where it is while those links are in use.
+
+Install commands and their output stream to the terminal and the run's log,
+including apt output, Git progress and download progress. Failures keep their
+exit status and stop the Linux installer with the log location.
 
 Tmux uses **Ctrl-a** as its prefix. `Ctrl-a v` / `Ctrl-a h` split panes;
 `Ctrl-Space` zooms a pane. The clipboard configuration uses OSC 52 for terminals

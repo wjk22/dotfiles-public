@@ -30,11 +30,11 @@ for arg in "$@"; do
 done
 
 # ---------------------------------------------------------------- output ---
-ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''; frames="| / - \\"
+ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''
 title='dotfiles - install linux'
 if [ -t 1 ]; then
     case $(locale charmap 2>/dev/null || true) in
-        UTF-8|utf8|UTF8) ok='✓'; failed='✗'; arrow='→'; title='🐇 dotfiles · install linux'; frames='⠋ ⠙ ⠹ ⠸ ⠼ ⠴ ⠦ ⠧ ⠇ ⠏' ;;
+        UTF-8|utf8|UTF8) ok='✓'; failed='✗'; arrow='→'; title='🐇 dotfiles · install linux' ;;
     esac
     if [ -z "${NO_COLOR+x}" ]; then
         green=$(printf '\033[32m'); red=$(printf '\033[31m'); bold=$(printf '\033[1m'); reset=$(printf '\033[0m')
@@ -351,37 +351,18 @@ changes=(); warnings=(); replaced=()
 [ -z "$locale_warning" ] || warnings+=("$locale_warning")
 
 # ----------------------------------------------------------------- steps ---
-spinner_pid=''; command_pid=''; step_name=''
-stop_spinner() {
-    if [ -n "$spinner_pid" ]; then
-        kill "$spinner_pid" 2>/dev/null || true
-        wait "$spinner_pid" 2>/dev/null || true
-        spinner_pid=''
-        printf '\r\033[2K'
-    fi
-}
-spin() {
-    trap 'exit 0' HUP INT TERM
-    while :; do
-        for frame in $frames; do
-            printf '\r  %s%s%s %-12s %s (%s)' "$green" "$frame" "$reset" "$step_name" "$step_detail" "$(duration "$(($(date +%s) - step_started))")"
-            sleep 0.1
-        done
-    done
-}
+command_pid=''; step_name=''
 step() {
-    step_name=$1; step_detail=$2
+    step_name=$1
     printf '\n--- %s ---\n' "$1" >> "$log"
     step_started=$(date +%s)
-    if [ -t 1 ]; then spin & spinner_pid=$!; else printf '  %-12s %s\n' "$1" "$2"; fi
+    printf '  %-12s %s\n' "$1" "$2"
 }
 passed() {
-    stop_spinner
     printf '  %s%s%s %-12s %s (%s)\n' "$green" "$ok" "$reset" "$step_name" "$1" "$(duration "$(($(date +%s) - step_started))")"
     step_name=''
 }
 show_error() {
-    stop_spinner
     printf '  %s%s%s %-12s %s (%s)\n' "$red" "$failed" "$reset" "${step_name:-Install}" "$1" "$(duration "$(($(date +%s) - ${step_started:-$started}))")" >&2
     tail -n 30 "$log" >&2
     printf '\n  Log: %s\n' "$log" >&2
@@ -393,14 +374,22 @@ interrupt() {
     show_error 'Install interrupted.'
     exit "$1"
 }
-trap 'stop_spinner; [ -z "$sudo_keeper" ] || kill "$sudo_keeper" 2>/dev/null || true' EXIT
+trap '[ -z "$sudo_keeper" ] || kill "$sudo_keeper" 2>/dev/null || true' EXIT
 trap 'interrupt 130' INT
 trap 'interrupt 143' HUP TERM
 run_logged() {
-    "$@" >> "$log" 2>&1 < /dev/null & command_pid=$!
-    local code=0
+    local code=0 output_code=0 output_fd output_pid
+    { printf '  +'; printf ' %q' "$@"; printf '\n'; } | tee -a "$log" || return $?
+    # Keep the real command PID for cancellation, and wait for tee to flush
+    # before returning so later log reads include all command output.
+    exec {output_fd}> >(tee -a "$log")
+    output_pid=$!
+    "$@" >&"$output_fd" 2>&1 < /dev/null & command_pid=$!
+    exec {output_fd}>&-
     wait "$command_pid" || code=$?
     command_pid=''
+    wait "$output_pid" || output_code=$?
+    if [ "$code" -eq 0 ]; then code=$output_code; fi
     return "$code"
 }
 run() {
@@ -438,7 +427,7 @@ if [ "${answer[packages]}" = yes ]; then
     elif ! "$lazydocker" --version 2>/dev/null | grep -qx "Version: $lazydocker_version"; then
         tmp=$(mktemp -d)
         file=lazydocker_${lazydocker_version}_Linux_$arch.tar.gz
-        run curl -fsSL -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
+        run curl -fL --progress-bar -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
         printf '%s  %s\n' "${lazydocker_sha256[$arch]}" "$tmp/$file" > "$tmp/sum"
         run sha256sum -c "$tmp/sum"
         run tar -xzf "$tmp/$file" -C "$tmp" lazydocker
@@ -504,7 +493,7 @@ if [ "${answer[ohmyzsh]}" = yes ]; then
             remote_head=$(git -C "$dir" ls-remote origin "refs/heads/$branch" 2>> "$log" | cut -f1 || true)
             [ -n "$remote_head" ] || fail "Cannot reach the $name repository."
             if [ "$remote_head" != "$(git -C "$dir" rev-parse HEAD)" ]; then
-                run git -C "$dir" pull --ff-only --quiet
+                run git -C "$dir" pull --ff-only --progress
                 updated+=("$name")
             fi
         else
@@ -512,7 +501,7 @@ if [ "${answer[ohmyzsh]}" = yes ]; then
             mkdir -p "$(dirname -- "$dir")"
             # The git settings oh-my-zsh's own installer uses, without running it
             # (umask 022 above keeps the clone free of group/other write bits).
-            run git clone --quiet --depth=1 \
+            run git clone --progress --depth=1 \
                 -c core.eol=lf -c core.autocrlf=false \
                 -c fsck.zeroPaddedFilemode=ignore -c fetch.fsck.zeroPaddedFilemode=ignore \
                 -c receive.fsck.zeroPaddedFilemode=ignore \
@@ -551,7 +540,7 @@ if [ "${answer[fonts]}" = yes ]; then
             continue
         fi
         tmp=$(mktemp)
-        run curl -fsSL -o "$tmp" "$fonts_url/${font// /%20}"
+        run curl -fL --progress-bar -o "$tmp" "$fonts_url/${font// /%20}"
         [ "$(sha256sum < "$tmp" | cut -d' ' -f1)" = "${font_sha256[$font]}" ] || { rm -f -- "$tmp"; fail "Checksum mismatch for $font."; }
         [ ! -e "$font_dir/$font" ] || backup "$font_dir/$font"
         mv -- "$tmp" "$font_dir/$font"
