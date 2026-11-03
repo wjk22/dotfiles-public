@@ -12,6 +12,7 @@ import pty
 import select
 import signal
 import struct
+import sys
 import termios
 import time
 from pathlib import Path
@@ -68,7 +69,7 @@ esac
                 archive.addfile(info, io.BytesIO(data))
         return buffer.getvalue()
 
-    def run_root(self, unsafe=False):
+    def run_root(self, unsafe=False, reply=None):
         payload = self.payload(unsafe)
         revision = hashlib.sha256(payload).hexdigest()
         command = ['bwrap', '--unshare-user', '--uid', '0', '--gid', '0', '--unshare-pid',
@@ -77,8 +78,66 @@ esac
                    '--dev', '/dev', '--ro-bind', str(self.git), '/usr/bin/git',
                    '--ro-bind', str(self.getent), '/usr/bin/getent', '--chdir', '/root',
                    '--setenv', 'HOME', '/root', '/usr/bin/python3', '-I',
-                   str(REPO / 'tools/root-shell.py'), '--receive', revision, 'yes']
-        return subprocess.run(command, input=payload, capture_output=True, timeout=30)
+                   str(REPO / 'tools/root-shell.py'), '--receive', revision,
+                   'yes' if reply is None else 'no']
+        if reply is None:
+            return subprocess.run(command, input=payload, capture_output=True, timeout=30)
+        # Archive on stdin, confirmation on a real controlling terminal, just
+        # like sudo's receiver. Never bind the host's live /root for these tests.
+        archive = self.work / 'snapshot.tar'
+        archive.write_bytes(payload)
+        pid, terminal = pty.fork()
+        if pid == 0:
+            with archive.open('rb') as stream:
+                os.dup2(stream.fileno(), 0)
+            os.execvp(command[0], command)
+        output = b''
+        prompted = False
+        try:
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline:
+                if not select.select([terminal], [], [], 0.1)[0]:
+                    continue
+                try:
+                    chunk = os.read(terminal, 65536)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                output += chunk
+                if not prompted and b'Apply [a], or quit [q]?' in output:
+                    self.assertFalse((self.home / '.dotfiles').exists())
+                    self.assertEqual((self.home / '.zshrc').read_text(), '# original root config\n')
+                    os.write(terminal, (reply + '\n').encode())
+                    prompted = True
+            else:
+                self.fail('Interactive root installer timed out')
+            _, status = os.waitpid(pid, 0)
+            pid = None
+            return subprocess.CompletedProcess(command, os.waitstatus_to_exitcode(status), output, b'')
+        finally:
+            os.close(terminal)
+            if pid is not None:
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                os.waitpid(pid, 0)
+
+    def test_interactive_quit_writes_nothing(self):
+        result = self.run_root(reply='q')
+        self.assertEqual(result.returncode, 0, result.stdout.decode())
+        self.assertIn(b'Nothing changed.', result.stdout)
+        self.assertFalse((self.home / '.dotfiles').exists())
+        self.assertFalse((self.home / '.dotfiles-backup').exists())
+        self.assertEqual((self.home / '.zshrc').read_text(), '# original root config\n')
+
+    def test_interactive_apply(self):
+        result = self.run_root(reply='a')
+        self.assertEqual(result.returncode, 0, result.stdout.decode())
+        self.assertIn(b'Apply [a], or quit [q]?', result.stdout)
+        self.assertTrue((self.home / '.zshrc').is_symlink())
+        self.assertEqual(len(list(self.home.glob('.zshrc.*.bak'))), 1)
 
     def test_install_backup_and_idempotence(self):
         first = self.run_root()
@@ -128,6 +187,35 @@ esac
     def test_reject_snapshot_symlink(self):
         self.assertNotEqual(self.run_root(unsafe=True).returncode, 0)
         self.assertFalse((self.home / '.dotfiles').exists())
+
+
+@unittest.skipIf(os.geteuid() == 0, 'normal-user launcher required')
+class RootLauncherTests(unittest.TestCase):
+    def test_receiver_failure_does_not_dump_bootstrap(self):
+        with tempfile.TemporaryDirectory() as folder:
+            bin_dir = Path(folder)
+            git = bin_dir / 'git'
+            git.write_text('''#!/bin/sh
+case "$*" in
+  *"status --porcelain") exit 0;;
+  *"rev-parse HEAD") echo 0123456789012345678901234567890123456789;;
+  *"archive "*) printf snapshot;;
+  *"show "*) printf BOOTSTRAP_CODE_MUST_NOT_BE_DUMPED;;
+  *) exit 98;;
+esac
+''')
+            sudo = bin_dir / 'sudo'
+            sudo.write_text('#!/bin/sh\necho "simulated receiver failure" >&2\nexit 42\n')
+            for command in (git, sudo):
+                command.chmod(0o755)
+            env = dict(os.environ, PATH=str(bin_dir) + ':' + os.environ['PATH'])
+            result = subprocess.run([sys.executable, str(REPO / 'tools/root-shell.py'), 'no'],
+                                    capture_output=True, text=True, env=env, timeout=10)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('sudo failed (exit 42)', result.stderr)
+            self.assertIn('simulated receiver failure', result.stderr)
+            self.assertNotIn('BOOTSTRAP_CODE_MUST_NOT_BE_DUMPED', result.stderr)
+            self.assertLess(len(result.stderr), 200)
 
 
 NEOMUTT = os.environ.get('NEOMUTT_TEST_BINARY') or shutil.which('neomutt')

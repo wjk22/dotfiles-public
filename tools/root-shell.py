@@ -110,10 +110,12 @@ def receive(revision, yes):
     print('  /root/.oh-my-zsh: root-owned upstream plugins; root login shell: zsh')
     print('  Local overrides kept; no system packages, fonts or normal-user config copied.', flush=True)
     if not yes:
-        with open('/dev/tty', 'r+') as terminal:
-            terminal.write('Apply [a], or quit [q]? ')
-            terminal.flush()
-            if terminal.readline().strip().lower() != 'a':
+        # A buffered read/write stream (r+) requires seeking; a TTY cannot seek.
+        # Keep separate streams while stdin remains reserved for the archive.
+        with open('/dev/tty', 'w') as prompt, open('/dev/tty', 'r') as reply:
+            prompt.write('Apply [a], or quit [q]? ')
+            prompt.flush()
+            if reply.readline().strip().lower() != 'a':
                 print('Nothing changed.')
                 return
     os.umask(0o077)
@@ -165,5 +167,8 @@ def main():
 if __name__ == '__main__':
     try:
         main()
-    except (ValueError, OSError, subprocess.CalledProcessError, tarfile.TarError) as error:
+    except subprocess.CalledProcessError as error:
+        # The sudo argv includes the whole receiver: never dump it on failure.
+        sys.exit(f'Root install stopped: {error.cmd[0]} failed (exit {error.returncode}); see the error above.')
+    except (ValueError, OSError, tarfile.TarError) as error:
         sys.exit(f'Root install stopped: {error}')
