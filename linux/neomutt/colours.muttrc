@@ -1,38 +1,40 @@
-# Gruvbox warmth with the existing NeoSolarized dark/transparent editor in mind:
-# warm paper text, restrained amber, muted teal, and the terminal background.
-# 256-colour values work in xterm-256color/tmux without a theme dependency.
-color normal              color223 default
-color indicator      bold color223 color237
-color status         bold color223 color237
-color tree                color109 default
-color tilde               color239 default
-color message             color109 default
-color error          bold color167 default
-color warning        bold color214 default
-color search              color235 color214
-color markers             color245 default
-color attachment          color214 default
-color signature           color245 default
-color quoted              color109 default
-color quoted1             color142 default
-color quoted2             color180 default
-color quoted3             color245 default
-color hdrdefault          color245 default
-color header         bold color109 default "^(From|To|Cc):"
-color header         bold color214 default "^Subject:"
-color body                color109 default "https?://[^ <>]+"
+# NeoSolarized dark, from dotfiles-nvim/nvim/colors/NeoSolarized.vim.
+# 256-colour equivalents keep xterm-256color/tmux working without forcing TERM
+# or directcolor. The background stays transparent, like the Neovim setup.
+# Base text #839496/#93a1a1; accents #268bd2 blue, #2aa198 cyan,
+# #b58900 yellow, #719e07 green; status follows lualine solarized_dark normal.a.
+color normal              color245 default
+color indicator      bold color247 color235
+color status         bold color234 color32
+color tree                color36  default
+color tilde               color242 default
+color message             color36  default
+color error          bold color160 default
+color warning        bold color136 default
+color search              color234 color136
+color markers             color242 default
+color attachment          color32  default
+color signature           color242 default
+color quoted              color36  default
+color quoted1             color70  default
+color quoted2             color62  default
+color quoted3             color242 default
+color hdrdefault          color242 default
+color header         bold color36  default "^(From|To|Cc):"
+color header         bold color32  default "^Subject:"
+color body                color32  default "https?://[^ <>]+"
 
-color index               color142 default "~N"
-color index          bold color223 default "~U !~N"
-color index          bold color214 default "~F"
-color index               color180 default "~T"
-color index               color245 default "~D"
+color index               color70  default "~N"
+color index          bold color247 default "~U !~N"
+color index          bold color136 default "~F"
+color index               color168 default "~T"
+color index               color242 default "~D"
 
-color sidebar_background  color245 default
-color sidebar_divider     color239 default
+color sidebar_background  color242 default
+color sidebar_divider     color242 default
 color sidebar_ordinary    color245 default
-color sidebar_highlight   color223 color237
-color sidebar_indicator bold color223 color237
-color sidebar_new    bold color142 default
-color sidebar_unread      color223 default
-color sidebar_flagged     color214 default
+color sidebar_highlight   color247 color235
+color sidebar_indicator bold color234 color32
+color sidebar_new    bold color70  default
+color sidebar_unread      color247 default
+color sidebar_flagged     color136 default

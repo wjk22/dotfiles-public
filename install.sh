@@ -172,7 +172,7 @@ labels=(
     'zsh as login shell'
     'MesloLGS NF fonts'
     'Link the dotfiles (backup first)'
-    'NeoMutt + Gruvbox theme + existing Neovim composer'
+    'NeoMutt + NeoSolarized theme + existing Neovim composer'
 )
 details=(
     "${base_packages[*]} ${tool_packages[*]}; lazydocker $lazydocker_version (checksum-checked)"

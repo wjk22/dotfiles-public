@@ -20,7 +20,7 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 - **The old colours are back:** the original 1996 palette now lives in a readable
   `dircolors` file, with matching colours for newer archive, image and video formats.
 - **Optional root and mail setup:** a private root-owned shell snapshot, and a
-  Gruvbox-inspired NeoMutt layout using your existing Neovim composer.
+  NeoSolarized NeoMutt layout using your existing Neovim composer.
 - **A nicer `cat`:** `cat` and `bcat` use bat in zsh and PowerShell, with syntax
   highlighting and line numbers. Personal aliases and settings live outside the repo.
 
@@ -174,8 +174,10 @@ loader in `~/.config/neomutt/neomuttrc` (honouring `XDG_CONFIG_HOME`). It requir
 an existing `nvim` executable and does not install or change your editor config.
 The current `dotfiles-nvim` setup uses **NeoSolarized dark with a transparent
 background**, Solarized lualine, two-space indentation and a Space leader.
-The mail theme complements it with Gruvbox-inspired warm text and amber,
-muted teal accents and a transparent background. It uses 256 colours and needs
+The mail theme uses that NeoSolarized palette too: muted grey text, blue and
+cyan accents, a blue status bar matching lualine, and a transparent background.
+It uses 256-colour approximations for compatibility with `xterm-256color` and
+tmux, so the RGB shades can differ slightly from Neovim. It needs
 no theme plugin, sync daemon, indexer or HTML renderer.
 
 Presentation lives in [`linux/neomutt/`](linux/neomutt/): separate layout,
