@@ -175,7 +175,8 @@ an existing `nvim` executable and does not install or change your editor config.
 The current `dotfiles-nvim` setup uses **NeoSolarized dark with a transparent
 background**, Solarized lualine, two-space indentation and a Space leader.
 The mail theme uses that NeoSolarized palette too: muted grey text, blue and
-cyan accents, a blue status bar matching lualine, and a transparent background.
+cyan accents, a dark status bar with a small blue MAIL label like lualine,
+and a transparent background.
 It uses 256-colour approximations for compatibility with `xterm-256color` and
 tmux, so the RGB shades can differ slightly from Neovim. It needs
 no theme plugin, sync daemon, indexer or HTML renderer.

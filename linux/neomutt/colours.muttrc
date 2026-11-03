@@ -2,10 +2,12 @@
 # 256-colour equivalents keep xterm-256color/tmux working without forcing TERM
 # or directcolor. The background stays transparent, like the Neovim setup.
 # Base text #839496/#93a1a1; accents #268bd2 blue, #2aa198 cyan,
-# #b58900 yellow, #719e07 green; status follows lualine solarized_dark normal.a.
+# #b58900 yellow, #719e07 green. Lualine-style chrome: a quiet bar with one
+# small blue mode label, rather than a full-width accent background.
 color normal              color245 default
 color indicator      bold color247 color235
-color status         bold color234 color32
+color status              color247 color235
+color status         bold color234 color32 "^ (MAIL|READ) "
 color tree                color36  default
 color tilde               color242 default
 color message             color36  default
@@ -31,10 +33,10 @@ color index               color168 default "~T"
 color index               color242 default "~D"
 
 color sidebar_background  color242 default
-color sidebar_divider     color242 default
+color sidebar_divider     color238 default
 color sidebar_ordinary    color245 default
 color sidebar_highlight   color247 color235
-color sidebar_indicator bold color234 color32
+color sidebar_indicator bold color32  color235
 color sidebar_new    bold color70  default
 color sidebar_unread      color247 default
 color sidebar_flagged     color136 default

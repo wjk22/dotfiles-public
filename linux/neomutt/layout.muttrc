@@ -5,6 +5,9 @@ set index_format = "%4C %Z %{%d %b} %-20.20L %s"
 set pager_index_lines = 8
 set pager_context = 3
 set status_on_top = no
+# A compact lualine-like status: mode, mailbox, counts and position.
+set status_format = " MAIL  %f %> %m messages  %?n?%n new  ?%P "
+set pager_format = " READ  %C/%m  %n %> %s  %P "
 
 ignore *
 unignore From: To: Cc: Date: Subject: Reply-To:
