@@ -26,9 +26,11 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 
 ## Getting started
 
-Clone the repo and run the installer as your normal user. On Debian, Git and
-sudo must already be available; package installation uses sudo. On Windows,
-Chocolatey uses one UAC prompt and can run under a separate administrator account.
+Clone the repo and run the installer as your normal user. Both Linux and Windows
+default to per-user setup, with no sudo or UAC prompts. Add **`--sudo`** to allow
+system changes. On Debian, Git and the tools needed by your selected user steps
+must already be installed. On Windows, Scoop installs tools for your account;
+Chocolatey system installs use one UAC prompt only with `--sudo`.
 
 ### Debian 13+ / WSL
 
@@ -37,6 +39,18 @@ git clone https://github.com/wjk22/dotfiles-public.git
 cd dotfiles-public
 ./install.sh
 ```
+
+To also install system packages and change the login shell:
+
+```sh
+./install.sh --sudo
+```
+
+Sudo being missing or denied leaves the per-user setup available. Skipped system
+changes are reported at the end; selected steps remain selected for a later
+`--sudo` run. Fonts can be copied without fontconfig, and mail configuration can
+be prepared before an administrator installs NeoMutt. Without `--sudo`, the login
+shell stays as it is; run `exec zsh` to use the configured shell in this session.
 
 ### Windows 10/11
 
@@ -51,6 +65,16 @@ cd dotfiles-public
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
+To also allow the selected Chocolatey system and optional app steps:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1 --sudo
+```
+
+`-Sudo` is the equivalent PowerShell spelling. Keep running the main installer
+as your normal user; only its system-package helper elevates, so user files and
+tools stay in the original account even when UAC uses another administrator.
+
 If your PowerShell execution policy already permits local scripts, just use
 `.\install.ps1`.
 
@@ -58,9 +82,10 @@ Enter accepts each suggested answer. The final plan lets you toggle steps by
 number, apply with `a`, or quit with `q`. On later runs, your previous choices
 become the suggestions. `--yes` on Linux and `-Yes` on Windows accept those
 suggestions and apply without asking; they do not mean "enable every step."
-Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
+They also never enable administrator actions: `--sudo` must be supplied on each
+run that needs them. Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
 
-Two focused Linux modes are also available: `./install.sh root` for root's
+Two focused Linux modes are also available: `./install.sh root --sudo` for root's
 shell and `./install.sh mail` to run only the NeoMutt step. The plain
 `./install.sh` configures your normal account, including the selectable mail step. Both optional modes need Python 3 (standard
 library only) and show a preview before applying; `--yes` accepts the plan.
@@ -124,7 +149,7 @@ After the normal Linux setup, run this **as your normal user**, from a clean,
 committed checkout:
 
 ```sh
-./install.sh root
+./install.sh root --sudo
 ```
 
 The privileged part needs sudo to inspect and write root's home and change root's
@@ -150,7 +175,7 @@ startup files must be root-owned and not writable by other users. Stale compiled
 root shell, root's own local overrides and the upstream plugin code are trusted
 code: review them before adding commands that source other files.
 
-Rerun `./install.sh root` after updating this repo to refresh root's snapshot and
+Rerun `./install.sh root --sudo` after updating this repo to refresh root's snapshot and
 plugins. Unchanged snapshots and config links are kept. A new log is written
 under `/root/.local/state/dotfiles/logs/`; older snapshots remain for recovery.
 Use `sudo -i` after installation to start root's new login shell. Root does not
@@ -169,9 +194,12 @@ neomutt
 In zsh, `nmutt` is the short alias for `neomutt`, like `nvim` for Neovim.
 Open a new shell or run `source ~/.alias` to load it.
 
-The mail mode installs only the `neomutt` package if needed and creates a private
-loader in `~/.config/neomutt/neomuttrc` (honouring `XDG_CONFIG_HOME`). It requires
+The mail mode creates a private loader in `~/.config/neomutt/neomuttrc`
+(honouring `XDG_CONFIG_HOME`). It requires
 an existing `nvim` executable and does not install or change your editor config.
+It prepares the configuration without sudo by default. Add `--sudo` to also
+install the `neomutt` package when missing. Missing or denied sudo leaves package
+installation to an administrator while completing the private configuration.
 The current `dotfiles-nvim` setup uses **NeoSolarized dark with a transparent
 background**, Solarized lualine, two-space indentation and a Space leader.
 The mail theme uses that NeoSolarized palette too: muted grey text, blue and
@@ -231,11 +259,11 @@ See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
 
 The six selectable steps are:
 
-1. **Chocolatey system packages:** PowerShell 7, Everything and Total Commander
-   by default, plus the PSWindowsUpdate module for all users.
+1. **Chocolatey system packages (requires `--sudo`):** Everything and Total
+   Commander by default, plus the PSWindowsUpdate module for all users.
 2. **Optional Chocolatey apps:** Ditto, ImageGlass, Chrome, Firefox, PotPlayer,
    System Informer, VS Code, VLC, Python and Seafile by default.
-3. **Scoop tools:** the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
+3. **Scoop tools:** PowerShell 7, the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
    and Wox, installed for the current user.
 4. **PowerShell modules:** PSReadLine, Terminal-Icons and PSFzf. This step needs
    PowerShell 7.4 or newer.
@@ -249,7 +277,11 @@ PSReadLine uses vi mode and history suggestions; `Ctrl+r` searches history and
 `Ctrl+f` selects files through fzf. Installing Oh My Posh alone does not activate
 the prompt: the PowerShell config step connects it to your profile.
 
-Scoop output appears in the main terminal; Chocolatey output appears in its
+An existing system PowerShell installation is still supported and is not removed;
+the per-user Scoop runtime is preferred when present. Keep `pwsh` in your local
+Scoop list for a fresh user setup, or provide an existing PowerShell 7.4+ runtime.
+
+Scoop output appears in the main terminal; with `--sudo`, Chocolatey output appears in its
 elevated window. Both are logged. If Chocolatey fails or elevation is cancelled,
 the installer continues and finishes with warnings. If PowerShell itself is
 missing or too old, the dependent steps are skipped and reported. Other failures

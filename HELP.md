@@ -87,7 +87,7 @@ oh-my-zsh's tmux plugin adds `ta` (attach), `ts` (new session), `tl` (list) and 
 
 ## Updating
 
-- `./install.sh root`: preview/install the shared shell as a private root-owned
+- `./install.sh root --sudo`: preview/install the shared shell as a private root-owned
   snapshot; run as your normal user. No user checkout or plugins are sourced by root.
 - `./install.sh mail`: preview/install NeoMutt presentation and private account
   files. Run `nmutt` (or `neomutt`) afterwards; configure accounts in `~/.config/neomutt/accounts.local`.
@@ -97,3 +97,5 @@ oh-my-zsh's tmux plugin adds `ta` (attach), `ts` (new session), `tl` (list) and 
 Pull the repo and run the installer again: `./install.sh` or
 `.\install.ps1`. It shows what's new, asks with your last answers as
 suggestions, and changes only what differs.
+Both run as your normal user by default. Add `--sudo` to allow system packages
+and other administrator steps; `-Yes` / `--yes` alone never enables elevation.

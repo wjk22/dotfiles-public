@@ -22,6 +22,8 @@ try {
     $local = Join-Path $fixture 'packages.local.psd1'
     $defaults = & $loader
     Assert ($defaults.Scoop -contains 'git') 'Default Scoop list was not loaded'
+    Assert ($defaults.Scoop -contains 'pwsh') 'PowerShell 7 must be available per user without UAC'
+    Assert ($defaults.ChocolateySystem -notcontains 'powershell-core') 'Default PowerShell must be managed per user, not installed twice'
     Assert ($defaults.ChocolateySystem -notcontains 'openvpn' -and $defaults.ChocolateySystem -notcontains 'netlimiter') 'Removed packages reappeared'
     "@{ ChocolateySystem=@('custom-system'); ChocolateyApps=@('custom-app'); Scoop=@('custom-tool','custom-tool') }" | Set-Content -LiteralPath $local
     $custom = & $loader
@@ -43,6 +45,27 @@ try {
     '@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@() }' | Set-Content -LiteralPath $local
     $empty = & $loader
     Assert ($empty.Scoop.Count -eq 0 -and $empty.ChocolateySystem.Count -eq 0) 'Empty lists were not preserved'
+
+    # A per-user runtime must win over an unrelated system/PATH installation.
+    $resolver = $main.Find({ param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Resolve-Pwsh'
+    }, $true)
+    & {
+        $scoopRoot = Join-Path $fixture 'scoop'
+        $runtimeDir = Join-Path $scoopRoot 'apps\pwsh\current'
+        $candidate = Join-Path $runtimeDir 'pwsh.exe'
+        New-Item -ItemType Directory -Path $runtimeDir -Force | Out-Null
+        [IO.File]::WriteAllText($candidate, 'fixture, never executed')
+        try {
+            . ([scriptblock]::Create($resolver.Extent.Text))
+            Assert ((Resolve-Pwsh) -eq $candidate) 'Scoop PowerShell was not preferred'
+        } finally {
+            Remove-Item -LiteralPath $candidate
+            foreach ($directory in @($runtimeDir, (Split-Path -Parent $runtimeDir), (Join-Path $scoopRoot 'apps'), $scoopRoot)) {
+                Remove-Item -LiteralPath $directory
+            }
+        }
+    }
 
     # Exercise the actual admin package selection and guarded invocation.
     $selection = $admin.EndBlock.Statements | Where-Object {
@@ -83,16 +106,21 @@ try {
     function Get-Item { return $null }
     function Get-Command { return $null }
     $pwsh = 'missing-pwsh'; $pwshVersion = $null
+    $Sudo = $true
     $answer = @{ choco = 'yes'; apps = 'no'; modules = 'yes'; config = 'no'; scoop = 'no' }
     $systemPackages = @(); $appPackages = @('powershell-core')
     Assert ((Test-Plan) -like 'PowerShell 7 is missing*') 'Removing PowerShell must not bypass dependency checks'
     $answer.apps = 'yes'
     Assert ((Test-Plan) -eq '') 'PowerShell in selected optional apps should satisfy the plan'
+    $Sudo = $false
+    Assert ((Test-Plan) -like 'PowerShell 7 is missing*') 'Chocolatey must not satisfy dependencies without --sudo'
+    $answer.scoop = 'yes'; $scoopApps = @('git', 'pwsh')
+    Assert ((Test-Plan) -eq '') 'Per-user Scoop PowerShell should satisfy the plan without --sudo'
     $answer.modules = 'no'; $answer.scoop = 'yes'; $scoopApps = @('custom-tool')
     Assert ((Test-Plan) -like 'Scoop bucket updates need Git*') 'Missing Git dependency not detected'
     $scoopApps = @()
     Assert ((Test-Plan) -eq '') 'Empty Scoop list must not require Git'
-    Write-Output 'PASS: package config, overrides, validation, selection, empty groups, dependencies, and script syntax'
+    Write-Output 'PASS: package config, overrides, validation, selection, empty groups, per-user PowerShell dependencies, and script syntax'
 } finally {
     foreach ($name in @('read-packages.ps1', 'packages.psd1', 'packages.local.psd1')) {
         Remove-Item -LiteralPath (Join-Path $fixture $name) -ErrorAction SilentlyContinue

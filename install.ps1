@@ -2,17 +2,29 @@
   Install or update the dotfiles on Windows. Safe to run again: it asks first,
   changes only what differs and backs up what it replaces.
 
-    powershell -ExecutionPolicy Bypass -File .\install.ps1 [-Yes]
+    powershell -ExecutionPolicy Bypass -File .\install.ps1 [-Yes] [--sudo]
 
-  Run it as your normal user. Chocolatey (system installs) runs once through
-  UAC via windows\install-admin.ps1; everything else is per user.
+  Run it as your normal user. Only --sudo allows Chocolatey system installs
+  through UAC via windows\install-admin.ps1; everything else is per user.
 #>
 [CmdletBinding()]
 param(
     # Accept every suggested answer and apply without asking.
     [switch]$Yes,
-    [Alias('h')][switch]$Help
+    [Alias('-sudo')][switch]$Sudo,
+    [Alias('h')][switch]$Help,
+    [Parameter(ValueFromRemainingArguments = $true)][string[]]$ExtraArguments = @()
 )
+# PowerShell passes GNU-style options as positional strings when the script is
+# called directly, but -File binds --sudo through its alias. Support both.
+foreach ($argument in $ExtraArguments) {
+    switch -CaseSensitive ($argument) {
+        '--sudo' { $Sudo = $true }
+        '--yes' { $Yes = $true }
+        '--help' { $Help = $true }
+        default { throw "Unknown option: $argument. Use -Help for usage." }
+    }
+}
 Set-StrictMode -Version 2
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
@@ -21,13 +33,16 @@ $started = Get-Date
 
 function Show-Usage {
     Write-Host @'
-Usage: .\install.ps1 [-Yes] [-Help]
+Usage: .\install.ps1 [-Yes] [--sudo] [-Help]
 
-  Windows 10/11: Chocolatey (one UAC prompt), scoop tools,
+  Windows 10/11: per-user scoop tools,
   PowerShell modules, fonts and the PowerShell config.
   On Debian or WSL, run ./install.sh instead.
 
   -Yes      accept every suggested answer and apply without asking
+  --sudo    allow Chocolatey system installs through one UAC prompt
+            without it, only per-user setup runs (no elevation prompts)
+            -Sudo is the equivalent PowerShell spelling
 '@
 }
 
@@ -78,7 +93,7 @@ Write-Check 'System' "$osName (build $build), PowerShell $($PSVersionTable.PSVer
 
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Stop-Install 'Run this as your normal user, not as administrator; it asks for admin rights (UAC) once, only for Chocolatey.'
+    Stop-Install 'Run this as your normal user. Add --sudo to allow the separate Chocolatey step to request UAC.'
 }
 Write-Check 'User' "$env:USERNAME, not elevated"
 
@@ -109,7 +124,7 @@ $haveChoco = Test-Path (Join-Path $env:ProgramData 'chocolatey\bin\choco.exe')
 $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
 $haveScoop = Test-Path (Join-Path $scoopRoot 'shims\scoop.ps1')
 Write-Check 'Managers' ('Chocolatey {0}, scoop {1}' -f @(
-    $(if ($haveChoco) { 'present' } else { 'missing (installed in step 1)' }),
+    $(if ($haveChoco) { 'present' } else { 'missing (step 1 requires --sudo)' }),
     $(if ($haveScoop) { 'present' } else { 'missing (installed in step 3)' })))
 
 # Old installs (e.g. git, gsudo, wox from the earlier README) also on Chocolatey:
@@ -169,13 +184,21 @@ $fontSha256 = [ordered]@{
     'MesloLGS NF Italic.ttf'      = '6F357BCBE2597704E157A915625928BCA38364A89C22A4AC36E7A116DCD392EF'
     'MesloLGS NF Bold Italic.ttf' = '56B4131ADECEC052C4B324EFB818DD326D586DBC316FC68F98F1CAE2EB8D1220'
 }
-$pwsh = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+function Resolve-Pwsh {
+    # Prefer the per-user Scoop runtime; also support an existing system install.
+    $scoopPwsh = Join-Path $scoopRoot 'apps\pwsh\current\pwsh.exe'
+    if (Test-Path -LiteralPath $scoopPwsh) { return $scoopPwsh }
+    $command = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($command) { return $command.Source }
+    return (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe')
+}
+$pwsh = Resolve-Pwsh
 $configLink = Join-Path $env:USERPROFILE '.config\powershell'
 $configSource = Join-Path $repo 'windows\.config\powershell'
 
 $questions = @(
-    @{ Key = 'choco'; Label = 'Use Chocolatey for system apps (one UAC prompt)'; Detail = "$systemPackages, PSWindowsUpdate module; no skips all Chocolatey installs" },
-    @{ Key = 'apps'; Label = 'Optional apps via Chocolatey (same UAC prompt)'; Detail = ($appPackages -join ' ') },
+    @{ Key = 'choco'; Label = 'Chocolatey system apps (requires --sudo)'; Detail = "$systemPackages, PSWindowsUpdate module; no skips all Chocolatey installs" },
+    @{ Key = 'apps'; Label = 'Optional Chocolatey apps (requires --sudo)'; Detail = ($appPackages -join ' ') },
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'set them in Windows Terminal afterwards' },
@@ -355,12 +378,13 @@ if (-not $Yes) {
 # A plan that would fail half-way is refused before anything changes.
 function Test-Plan {
     $needsPwsh = $answer['modules'] -eq 'yes' -or $answer['config'] -eq 'yes'
-    $installsPwsh = $answer['choco'] -eq 'yes' -and ($systemPackages -contains 'powershell-core' -or ($answer['apps'] -eq 'yes' -and $appPackages -contains 'powershell-core'))
+    $installsPwsh = ($answer['scoop'] -eq 'yes' -and $scoopApps -contains 'pwsh') -or
+        ($Sudo -and $answer['choco'] -eq 'yes' -and ($systemPackages -contains 'powershell-core' -or ($answer['apps'] -eq 'yes' -and $appPackages -contains 'powershell-core')))
     if ($needsPwsh -and -not $installsPwsh -and -not (Test-Path $pwsh)) {
-        return 'PowerShell 7 is missing; include powershell-core in a selected Chocolatey group, install it first, or disable steps 4 and 6.'
+        return 'PowerShell 7 is missing; select Scoop with pwsh, allow powershell-core through Chocolatey with --sudo, install it first, or disable steps 4 and 6.'
     }
     if ($answer['modules'] -eq 'yes' -and -not $installsPwsh -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
-        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); include powershell-core in a selected Chocolatey group, update it first, or disable step 4."
+        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); select Scoop with pwsh, allow a Chocolatey upgrade with --sudo, update it first, or disable step 4."
     }
     if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0 -and $scoopApps -notcontains 'git' -and -not (Get-Command git -ErrorAction SilentlyContinue)) {
         return 'Scoop bucket updates need Git; add git to the Scoop group or install it first.'
@@ -535,7 +559,10 @@ Write-Host ''
 
 $skipModules = $false
 $skipConfig = $false
-if ($answer['choco'] -eq 'yes') {
+if ($answer['choco'] -eq 'yes' -and -not $Sudo) {
+    $warnings.Add('Chocolatey system apps skipped: rerun with --sudo to allow the UAC prompt. Per-user setup continues.')
+}
+if ($Sudo -and $answer['choco'] -eq 'yes') {
     Start-Step 'Chocolatey' 'waiting for the UAC prompt'
     $adminArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$repo\windows\install-admin.ps1`"", '-Log', "`"$log`"")
     if ($answer['apps'] -eq 'yes') { $adminArgs += '-Apps' }
@@ -559,11 +586,12 @@ if ($answer['choco'] -eq 'yes') {
                 $availablePwsh = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
             } catch { $availablePwsh = $null }
         }
-        if ($answer['modules'] -eq 'yes' -and (-not $availablePwsh -or $availablePwsh -lt [version]'7.4')) {
+        $scoopInstallsPwsh = $answer['scoop'] -eq 'yes' -and $scoopApps -contains 'pwsh'
+        if ($answer['modules'] -eq 'yes' -and -not $scoopInstallsPwsh -and (-not $availablePwsh -or $availablePwsh -lt [version]'7.4')) {
             $skipModules = $true
             $warnings.Add('Modules skipped: PowerShell 7.4+ is unavailable after the Chocolatey failure.')
         }
-        if ($answer['config'] -eq 'yes' -and -not $availablePwsh) {
+        if ($answer['config'] -eq 'yes' -and -not $scoopInstallsPwsh -and -not $availablePwsh) {
             $skipConfig = $true
             $warnings.Add('PowerShell config skipped: PowerShell 7 is unavailable after the Chocolatey failure.')
         }
@@ -624,11 +652,12 @@ if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
     }
 }
 
+$pwsh = Resolve-Pwsh
 if ($answer['modules'] -eq 'yes' -and -not $skipModules) {
     Start-Step 'Modules' ($modules -join ' ')
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     $pwshNow = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
-    if ($pwshNow -lt [version]'7.4') { Stop-Step "PowerShell $pwshNow is too old for PSResourceGet (needs 7.4+); update it with step 1." }
+    if ($pwshNow -lt [version]'7.4') { Stop-Step "PowerShell $pwshNow is too old for PSResourceGet (needs 7.4+); update pwsh through Scoop (step 3)." }
     # Runs in pwsh: modules installed from Windows PowerShell land where pwsh doesn't look.
     $moduleScript = @"
 `$ErrorActionPreference = 'Stop'
@@ -705,7 +734,7 @@ if ($answer['fonts'] -eq 'yes') {
 if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
     Start-Step 'Config' 'junction, $PROFILE, DOTFILES'
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
-    # Query again after Chocolatey may have installed pwsh. Check every
+    # Query again after Scoop or Chocolatey may have installed pwsh. Check every
     # destination before the first config write, including redirected Documents.
     $profilePath = (& $pwsh -NoProfile -NonInteractive -Command '$PROFILE.CurrentUserCurrentHost' | Out-String).Trim()
     if (-not $profilePath) { Stop-Step 'Could not read $PROFILE from pwsh.' }

@@ -10,7 +10,7 @@ started=$(date +%s)
 
 usage() {
     cat <<'EOF'
-Usage: ./install.sh [root|mail] [--yes]
+Usage: ./install.sh [root|mail] [--yes] [--sudo]
 
   Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
   tmux, fonts, NeoMutt and the dotfiles from linux/.
@@ -20,13 +20,17 @@ Usage: ./install.sh [root|mail] [--yes]
   mail      install the NeoMutt presentation config for your user
 
   --yes     accept every suggested answer and apply without asking
+  --sudo    allow sudo for system packages and login-shell changes
+            without it, only per-user setup runs (no sudo prompts)
 EOF
 }
 
-assume_yes=no; mode=user
+assume_yes=no; mode=user; allow_sudo=no
 for arg in "$@"; do
     case $arg in
         --yes|-y) assume_yes=yes ;;
+        --sudo) allow_sudo=yes ;;
+        --no-sudo) allow_sudo=no ;;
         root|mail|--root-apply) [ "$mode" = user ] || { usage >&2; exit 2; }; mode=$arg ;;
         -h|--help) usage; exit 0 ;;
         *) usage >&2; exit 2 ;;
@@ -34,9 +38,11 @@ for arg in "$@"; do
 done
 
 if [ "$mode" = root ]; then
+    [ "$allow_sudo" = yes ] || { echo 'Root setup requires --sudo: ./install.sh root --sudo' >&2; exit 2; }
     exec /usr/bin/python3 "$repo/tools/root-shell.py" "$assume_yes"
 elif [ "$mode" = mail ]; then
-    exec /usr/bin/python3 "$repo/tools/install-mail.py" "$assume_yes"
+    [ "$allow_sudo" = no ] || exec /usr/bin/python3 "$repo/tools/install-mail.py" "$assume_yes" with-sudo
+    exec /usr/bin/python3 "$repo/tools/install-mail.py" "$assume_yes" no-packages
 fi
 root_mode=no
 if [ "$mode" = --root-apply ]; then
@@ -93,12 +99,11 @@ else
 fi
 
 if [ "$root_mode" = no ]; then
-    [ "$(id -u)" -ne 0 ] || die 'Run this as your normal user; use ./install.sh root for root.'
-    command -v sudo >/dev/null || die "sudo is missing; as root run: apt install sudo && adduser $(id -un) sudo, then log in again."
+    [ "$(id -u)" -ne 0 ] || die 'Run this as your normal user; use ./install.sh root --sudo for root.'
 fi
-command -v git >/dev/null || die 'git is missing; run: sudo apt install git'
+command -v git >/dev/null || die 'git is missing; ask an administrator to install it first.'
 if [ "$root_mode" = yes ]; then check_ok User 'root, private snapshot and clean environment'
-else check_ok User "$(id -un), sudo and git present"; fi
+else check_ok User "$(id -un), git present (sudo is optional)"; fi
 
 if [ "$root_mode" = yes ]; then
     new_commit=$(cat "$repo/.revision")
@@ -167,9 +172,9 @@ link_list=$(printf '~/%s ' "${links[@]}")
 
 keys=(packages ohmyzsh shell fonts links mail)
 labels=(
-    'Packages and tools (apt, lazydocker from GitHub)'
+    'Packages and tools (system packages require --sudo)'
     'oh-my-zsh, plugins and p10k (install or update)'
-    'zsh as login shell'
+    'zsh as login shell (changes require --sudo)'
     'MesloLGS NF fonts'
     'Link the dotfiles (backup first)'
     'NeoMutt + NeoSolarized theme + existing Neovim composer'
@@ -349,15 +354,51 @@ need_sudo=no
 [ "${#want_packages[@]}${#want_fontconfig[@]}" = 00 ] || need_sudo=yes
 if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then need_sudo=yes; fi
 if [ "${answer[mail]}" = yes ] && ! command -v neomutt >/dev/null; then need_sudo=yes; fi
-sudo_keeper=''
-if [ "$need_sudo" = yes ]; then
+sudo_keeper=''; admin_available=$allow_sudo
+skip_packages=no; skip_shell=no; skip_fonts=no; skip_mail=no; admin_warnings=()
+[ "$root_mode" = no ] || admin_available=yes
+if [ "$need_sudo" = yes ] && [ "$admin_available" = yes ]; then
     if [ "$root_mode" = yes ]; then
         need_sudo=no
     else
         printf '\n'
-        sudo -v || die 'sudo did not work; your user needs sudo rights for packages and the login shell.'
-        # Keep the sudo timestamp fresh during long apt runs; ends with this script.
-        (while sleep 50; do sudo -n -v 2>/dev/null || exit 0; done) & sudo_keeper=$!
+        if command -v sudo >/dev/null && sudo -v; then
+            # Keep the sudo timestamp fresh during long apt runs; ends with this script.
+            (while sleep 50; do sudo -n -v 2>/dev/null || exit 0; done) </dev/null >/dev/null 2>&1 & sudo_keeper=$!
+        else
+            admin_available=no
+        fi
+    fi
+fi
+if [ "$admin_available" = no ]; then
+    if [ "$allow_sudo" = yes ]; then
+        printf '\n  Continuing with per-user setup; sudo is unavailable or was denied.\n'
+    else
+        printf '\n  Continuing with per-user setup; use --sudo to allow system changes.\n'
+    fi
+    if [ "${#want_packages[@]}" -gt 0 ]; then
+        skip_packages=yes
+        admin_warnings+=("System package step skipped; ask an administrator to install: ${want_packages[*]}.")
+    fi
+    if [ "${answer[shell]}" = yes ] && [ "$login_shell" != "$(command -v zsh || echo /usr/bin/zsh)" ]; then
+        skip_shell=yes
+        admin_warnings+=("Login shell unchanged; use exec zsh for this session, or ask an administrator to change the login shell for $(id -un).")
+    fi
+    if [ "${#want_fontconfig[@]}" -gt 0 ]; then
+        want_fontconfig=()
+        admin_warnings+=('fontconfig package skipped; font files can still be installed in ~/.local/share/fonts.')
+    fi
+    if [ "${answer[fonts]}" = yes ] && ! command -v curl >/dev/null; then
+        skip_fonts=yes
+        admin_warnings+=('Font downloads skipped because curl is missing; ask an administrator to install curl.')
+    fi
+    if [ "${answer[mail]}" = yes ]; then
+        for tool in python3 nvim; do
+            if ! command -v "$tool" >/dev/null; then
+                skip_mail=yes
+                admin_warnings+=("Mail setup skipped because $tool is missing; ask an administrator to install it.")
+            fi
+        done
     fi
 fi
 
@@ -393,7 +434,7 @@ backup() {
     printf 'backup: %s -> %s\n' "$path" "$backup_dir/$rel" >> "$log"
 }
 
-changes=(); warnings=(); replaced=()
+changes=(); warnings=("${admin_warnings[@]}"); replaced=()
 [ -z "$locale_warning" ] || warnings+=("$locale_warning")
 
 # ----------------------------------------------------------------- steps ---
@@ -457,7 +498,7 @@ apt_install() {
 
 printf '\n'
 
-if [ "${answer[packages]}" = yes ]; then
+if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
     package_count=$((${#base_packages[@]} + ${#tool_packages[@]}))
     step Packages "$package_count apt packages, lazydocker"
     done_packages=()
@@ -563,7 +604,7 @@ if [ "${answer[ohmyzsh]}" = yes ]; then
     passed "$result"
 fi
 
-if [ "${answer[shell]}" = yes ]; then
+if [ "${answer[shell]}" = yes ] && [ "$skip_shell" = no ]; then
     step Shell 'zsh as login shell'
     zsh_path=$(command -v zsh) || fail 'zsh is not installed.'
     if [ "$login_shell" = "$zsh_path" ]; then
@@ -577,7 +618,7 @@ if [ "${answer[shell]}" = yes ]; then
     fi
 fi
 
-if [ "${answer[fonts]}" = yes ]; then
+if [ "${answer[fonts]}" = yes ] && [ "$skip_fonts" = no ]; then
     step Fonts 'MesloLGS NF'
     [ "${#want_fontconfig[@]}" -eq 0 ] || { apt_install fontconfig; changes+=('apt: fontconfig'); }
     font_dir=$HOME/.local/share/fonts
@@ -598,7 +639,8 @@ if [ "${answer[fonts]}" = yes ]; then
     if [ "$new_fonts" -eq 0 ]; then
         passed 'all 4 installed'
     else
-        run fc-cache -f "$font_dir"
+        if command -v fc-cache >/dev/null; then run fc-cache -f "$font_dir"
+        else warnings+=('Font files installed; fc-cache is unavailable. Install fontconfig or refresh the font cache later.'); fi
         changes+=("fonts: $new_fonts MesloLGS NF files")
         passed "installed $new_fonts"
     fi
@@ -634,11 +676,20 @@ if [ "${answer[links]}" = yes ]; then
     fi
 fi
 
-if [ "${answer[mail]}" = yes ]; then
+if [ "${answer[mail]}" = yes ] && [ "$skip_mail" = no ]; then
     step NeoMutt 'mail client, theme and Neovim composer'
-    run /usr/bin/python3 -u "$repo/tools/install-mail.py" yes
-    changes+=('NeoMutt: package and themed configuration checked; run nmutt')
-    passed 'ready; launch nmutt (or neomutt)'
+    mail_args=(yes)
+    if [ "$admin_available" = yes ]; then mail_args+=(with-sudo)
+    else mail_args+=(no-packages); fi
+    run /usr/bin/python3 -u "$repo/tools/install-mail.py" "${mail_args[@]}"
+    if command -v neomutt >/dev/null; then
+        changes+=('NeoMutt: package and themed configuration checked; run nmutt')
+        passed 'ready; launch nmutt (or neomutt)'
+    else
+        changes+=('NeoMutt: themed configuration prepared')
+        warnings+=('NeoMutt is not installed; ask an administrator to install neomutt before running nmutt.')
+        passed 'configuration ready; neomutt package still needed'
+    fi
 fi
 
 # Remember this run for the next one; rewritten only when something differs.

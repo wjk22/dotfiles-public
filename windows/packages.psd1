@@ -3,7 +3,6 @@
 # For machine-local choices, copy this file to packages.local.psd1 (Git ignores it).
 @{
     ChocolateySystem = @(
-        'powershell-core'
         'everything'
         'totalcommander'
     )
@@ -22,6 +21,7 @@
     # Package IDs from Scoop's main and extras buckets.
     Scoop = @(
         'git'
+        'pwsh'
         'neovim'
         'gsudo'
         'oh-my-posh'

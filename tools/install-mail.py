@@ -70,12 +70,15 @@ def main():
     print('  Existing account settings and shortcuts load after the shared appearance.')
     print('  Neovim config stays in use; no editor config, mailbox or credentials are copied into Git.')
     if not shutil.which('neomutt'):
-        print('  Install the neomutt package with sudo apt-get install neomutt.')
+        print('  NeoMutt is missing; its configuration can still be prepared without administrator rights.')
     if (len(sys.argv) < 2 or sys.argv[1] != 'yes') and input('Apply [a], or quit [q]? ').strip().lower() != 'a':
         print('Nothing changed.')
         return
     if not shutil.which('neomutt'):
-        subprocess.run(['sudo', 'apt-get', 'install', '-y', 'neomutt'], check=True)
+        if 'with-sudo' in sys.argv[2:] and shutil.which('sudo'):
+            installed = subprocess.run(['sudo', 'apt-get', 'install', '-y', 'neomutt'])
+            if installed.returncode:
+                print('  Package installation unavailable; continuing with your private configuration.')
     # Config parsing is covered by the test suite. Do not launch NeoMutt here:
     # private config may execute password commands or contact a mail server.
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -102,7 +105,11 @@ def main():
             with path.open('x') as output:
                 output.write('# Private NeoMutt ' + name + '; kept outside Git.\n')
             path.chmod(0o600)
-    print(f'Ready. Add your account in {directory / "accounts.local"}, then run neomutt.')
+    if shutil.which('neomutt'):
+        print(f'Ready. Add your account in {directory / "accounts.local"}, then run neomutt.')
+    else:
+        print(f'Configuration ready. Add your account in {directory / "accounts.local"}.')
+        print('Ask an administrator to install the neomutt package before launching it.')
     print(f'Example: {repo / "linux/neomutt/accounts.example"}; F2 sidebar, F3/F4 select, F5 open.')
 
 

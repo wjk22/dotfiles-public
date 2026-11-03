@@ -150,7 +150,7 @@ def main():
         secure(path, tree=True)
     else:
         if os.geteuid() == 0:
-            raise ValueError('Invoke ./install.sh root as your normal user')
+            raise ValueError('Invoke ./install.sh root --sudo as your normal user')
         repo = Path(__file__).resolve().parents[1]
         if subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain']):
             raise ValueError('Commit or stash checkout changes first; root uses committed files only')
