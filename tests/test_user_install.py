@@ -17,6 +17,7 @@ class UserInstallTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.work = Path(self.temp.name)
+        self.repo = REPO
         self.home = self.work / 'home'
         self.home.mkdir()
         self.bin = self.work / 'bin'
@@ -62,15 +63,43 @@ esac
         state.mkdir(parents=True, exist_ok=True)
         (state / 'linux.state').write_text(
             f'packages={packages}\nohmyzsh=yes\nshell={shell}\nfonts=no\nlinks=yes\nmail={mail}\n')
-        result = subprocess.run(['/bin/bash', str(REPO / 'install.sh'), '--yes', *flags],
+        result = subprocess.run(['/bin/bash', str(self.repo / 'install.sh'), '--yes', *flags],
                                 env=self.env, capture_output=True, text=True, timeout=20)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.home / '.zshrc').is_symlink())
-        self.assertEqual((self.home / '.zshrc').resolve(), REPO / 'linux/.zshrc')
+        self.assertEqual((self.home / '.zshrc').resolve(), self.repo / 'linux/.zshrc')
         self.assertEqual(next(self.home.glob('.zshrc.*.bak')).read_text(), '# original user config\n')
         self.assertEqual((self.home / '.alias.local').read_text(), 'alias private_test=true\n')
         self.assertTrue((self.home / '.oh-my-zsh/custom/themes/powerlevel10k/.git').is_dir())
         return result
+
+    def test_edited_checkout_installs_worktree_and_preserves_git_state(self):
+        self.repo = self.work / 'checkout'
+        shutil.copytree(REPO, self.repo, ignore=shutil.ignore_patterns('.git', 'temp', '__pycache__'))
+        git_binary = shutil.which('git')
+        def git(*args):
+            return subprocess.check_output([git_binary, '-C', str(self.repo), *args], text=True)
+        git('init', '-q')
+        git('add', '.')
+        git('-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+            '-c', 'commit.gpgsign=false', 'commit', '-qm', 'fixture')
+        staged = self.repo / 'linux/.alias'
+        staged.write_text(staged.read_text() + '\n# staged customization\n')
+        git('add', 'linux/.alias')
+        unstaged = self.repo / 'linux/.zshrc'
+        unstaged.write_text(unstaged.read_text() + '\n# unstaged customization\n')
+        untracked = self.repo / 'personal-notes.txt'
+        untracked.write_text('keep this untracked file\n')
+        before = (git('status', '--porcelain'), git('diff'), git('diff', '--cached'))
+        stub = (self.bin / 'git').read_text()
+        (self.bin / 'git').write_text(stub.replace('#!/bin/sh\n',
+            f'#!/bin/sh\nif [ "$2" = "{self.repo}" ]; then exec "{git_binary}" "$@"; fi\n', 1))
+        result = self.install(packages='no', shell='no')
+        self.assertIn('with local changes; installing current checkout files', result.stdout)
+        self.assertIn('# unstaged customization', (self.home / '.zshrc').read_text())
+        self.assertIn('# staged customization', (self.home / '.alias').read_text())
+        self.assertEqual(untracked.read_text(), 'keep this untracked file\n')
+        self.assertEqual(before, (git('status', '--porcelain'), git('diff'), git('diff', '--cached')))
 
     def test_missing_sudo_keeps_per_user_steps(self):
         result = self.install('--sudo', mail='yes')

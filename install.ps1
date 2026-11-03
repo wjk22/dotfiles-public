@@ -102,14 +102,12 @@ $newCommit = ''
 if (Get-Command git -ErrorAction SilentlyContinue) {
     $dirty = & git -C $repo status --porcelain 2>$null
     if ($LASTEXITCODE -ne 0) { Stop-Install "$repo is not a git checkout; clone the repo and run it from there." }
-    if ($dirty) {
-        $files = ($dirty | ForEach-Object { $_.Substring(3) }) -join ' '
-        Stop-Install "The repo has uncommitted changes; commit or stash them first ($files)."
-    }
     $newCommit = (& git -C $repo rev-parse HEAD).Trim()
-    $repoDetail = "clean at $($newCommit.Substring(0, 7))"
+    $repoDetail = if ($dirty) {
+        "$($newCommit.Substring(0, 7)) with local changes; installing current checkout files"
+    } else { "clean at $($newCommit.Substring(0, 7))" }
 } else {
-    $repoDetail = 'git not installed yet (scoop brings it), clean check skipped'
+    $repoDetail = 'git not installed yet (scoop brings it); installing current checkout files'
 }
 if ($onNetworkPath) { $repoDetail += '; network path, so the config is copied, not linked' }
 Write-Check 'Repo' $repoDetail
@@ -162,7 +160,7 @@ $newShort = if ($newCommit) { $newCommit.Substring(0, 7) } else { 'this checkout
 if (-not $oldCommit) {
     Write-Host "  not installed yet $arrow $newShort"
 } elseif ($oldCommit -eq $newCommit) {
-    Write-Host "  $newShort, nothing new in this checkout"
+    Write-Host "  $newShort, same base; applying current checkout files"
 } else {
     $line = "  $($oldCommit.Substring(0, 7)) $arrow $newShort"
     if ($newCommit) {

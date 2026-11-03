@@ -2,8 +2,9 @@
 """Snapshot the reviewed shell config, then reuse install.sh inside /root.
 
 The privileged receiver reads file bytes, never sources the invoking checkout.
-Only committed, allowlisted regular files enter the root-owned snapshot.
+Only allowlisted regular files from the working tree enter the root-owned snapshot.
 """
+import hashlib
 import io
 import os
 from pathlib import Path
@@ -21,6 +22,38 @@ FILES = (
 )
 MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf')
 SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+
+def snapshot(repo):
+    """Freeze local edits without changing Git's index or following source links."""
+    buffer = io.BytesIO()
+    receiver = None
+    with tarfile.open(fileobj=buffer, mode='w') as archive:
+        for name in FILES:
+            path = repo
+            for part in Path(name).parts:
+                path /= part
+                if path.is_symlink():
+                    raise ValueError(f'Snapshot source must not be a symlink: {path}')
+            if not stat.S_ISREG(path.lstat().st_mode):
+                raise ValueError(f'Snapshot source must be a regular file: {path}')
+            with path.open('rb') as source:
+                if not stat.S_ISREG(os.fstat(source.fileno()).st_mode):
+                    raise ValueError(f'Snapshot source must be a regular file: {path}')
+                data = source.read(8 * 1024 * 1024 + 1)
+            if len(data) > 8 * 1024 * 1024:
+                raise ValueError('Root snapshot is unexpectedly large')
+            item = tarfile.TarInfo(name)
+            item.size = len(data)
+            archive.addfile(item, io.BytesIO(data))
+            if buffer.tell() > 8 * 1024 * 1024:
+                raise ValueError('Root snapshot is unexpectedly large')
+            if name == 'tools/root-shell.py':
+                receiver = data.decode('utf-8')
+    payload = buffer.getvalue()
+    if len(payload) > 8 * 1024 * 1024:
+        raise ValueError('Root snapshot is unexpectedly large')
+    return hashlib.sha256(payload).hexdigest(), payload, receiver
 
 
 def secure(path, tree=False, seen=None):
@@ -82,7 +115,7 @@ def audit():
 
 def receive(revision, yes):
     if os.geteuid() != 0 or not re.fullmatch(r'[0-9a-f]{40,64}', revision):
-        raise ValueError('Receiver requires root and a Git revision')
+        raise ValueError('Receiver requires root and a snapshot ID')
     audit()
     data = sys.stdin.buffer.read(8 * 1024 * 1024 + 1)
     if len(data) > 8 * 1024 * 1024:
@@ -152,11 +185,7 @@ def main():
         if os.geteuid() == 0:
             raise ValueError('Invoke ./install.sh root --sudo as your normal user')
         repo = Path(__file__).resolve().parents[1]
-        if subprocess.check_output(['git', '-C', str(repo), 'status', '--porcelain']):
-            raise ValueError('Commit or stash checkout changes first; root uses committed files only')
-        revision = subprocess.check_output(['git', '-C', str(repo), 'rev-parse', 'HEAD'], text=True).strip()
-        payload = subprocess.check_output(['git', '-C', str(repo), 'archive', revision, *FILES])
-        receiver = subprocess.check_output(['git', '-C', str(repo), 'show', revision + ':tools/root-shell.py'], text=True)
+        revision, payload, receiver = snapshot(repo)
         # -I and env -i exclude user Python modules, shell hooks and PATH overrides.
         subprocess.run(['sudo', '/usr/bin/env', '-i', 'HOME=/root', f'PATH={SAFE_PATH}',
                         'LANG=C.UTF-8', f'TERM={os.environ.get("TERM", "xterm-256color")}',

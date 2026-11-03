@@ -145,8 +145,8 @@ the listing aliases fall back to GNU ls.
 
 ### The same shell for root
 
-After the normal Linux setup, run this **as your normal user**, from a clean,
-committed checkout:
+After the normal Linux setup, run this **as your normal user**, from your
+checkout (local edits are included):
 
 ```sh
 ./install.sh root --sudo
@@ -158,8 +158,8 @@ It reuses the shell files and the existing installer's plugin, backup and link
 steps. Root mode does not install packages or fonts: system Git and zsh must
 already be installed; the normal setup supplies the other system tools.
 
-Root's config links point into **`/root/.dotfiles/<commit>/`**, a root-owned
-snapshot of allowlisted, committed regular files, never into your checkout.
+Root's config links point into **`/root/.dotfiles/<snapshot-id>/`**, a root-owned
+snapshot of allowlisted regular files from your checkout, never into your checkout.
 Snapshots use private directories and files. Oh My Zsh, Powerlevel10k and the
 plugins live separately under **`/root/.oh-my-zsh`**, cloned from the same
 upstream repositories as the normal setup. Your personal plugins, aliases,
@@ -344,8 +344,12 @@ not guarantee that it meets that configuration's required version.
 
 ## Updates, backups and logs
 
-Pull the repo and rerun the same installer. The scripts require a clean checkout;
-keep personal edits in the local files above. Linked shell files reflect repo
+Pull the repo and rerun the same installer. Both installers use your current
+checkout, including uncommitted edits and untracked files; no commit or stash
+is required. They leave your Git index and local edits alone. The local files
+above are still the easiest place for personal settings across updates.
+Root setup also includes local edits in its allowlisted shell files, saved as
+a private snapshot identified by its contents. Linked shell files reflect repo
 changes in new shells; copied Windows configs need another installer run.
 
 Before replacing existing shell configs, the installers preserve timestamped
@@ -367,6 +371,8 @@ Developer checks: `bash -n install.sh` and
 Root integration tests require bubblewrap and user namespaces and mount a
 disposable `/root`; they must never be replaced with a live root install.
 Mail tests require NeoMutt (or `NEOMUTT_TEST_BINARY` pointing to a test binary).
+On Windows, `windows/test-local-edits.ps1` checks edited checkouts with real Git
+and disposable homes on PowerShell 5.1 and 7, without packages or elevation.
 
 ## A little history
 

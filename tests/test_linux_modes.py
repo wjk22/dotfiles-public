@@ -56,6 +56,8 @@ esac
         self.getent.chmod(0o755)
 
     def payload(self, unsafe=False):
+        if not unsafe:
+            return root_shell.snapshot(REPO)[1]
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode='w') as archive:
             for name in root_shell.FILES:
@@ -191,19 +193,36 @@ esac
 
 @unittest.skipIf(os.geteuid() == 0, 'normal-user launcher required')
 class RootLauncherTests(unittest.TestCase):
+    def test_snapshot_includes_local_edits_and_is_content_addressed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            repo = Path(folder)
+            for name in root_shell.FILES:
+                path = repo / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes((REPO / name).read_bytes())
+            original_id, _, _ = root_shell.snapshot(repo)
+            alias = repo / 'linux/.alias'
+            alias.write_text(alias.read_text() + '\n# local root edit\n')
+            (repo / 'untracked-secret').write_text('must not enter snapshot')
+            revision, payload, receiver = root_shell.snapshot(repo)
+            self.assertNotEqual(original_id, revision)
+            self.assertEqual(revision, hashlib.sha256(payload).hexdigest())
+            self.assertEqual(receiver, (repo / 'tools/root-shell.py').read_text())
+            with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
+                self.assertEqual(set(archive.getnames()), set(root_shell.FILES))
+                self.assertEqual(archive.extractfile('linux/.alias').read(), alias.read_bytes())
+            os.utime(alias, None)
+            self.assertEqual(root_shell.snapshot(repo)[0], revision)
+            alias.unlink()
+            alias.symlink_to(REPO / 'linux/.alias')
+            with self.assertRaisesRegex(ValueError, 'symlink'):
+                root_shell.snapshot(repo)
+
     def test_receiver_failure_does_not_dump_bootstrap(self):
         with tempfile.TemporaryDirectory() as folder:
             bin_dir = Path(folder)
             git = bin_dir / 'git'
-            git.write_text('''#!/bin/sh
-case "$*" in
-  *"status --porcelain") exit 0;;
-  *"rev-parse HEAD") echo 0123456789012345678901234567890123456789;;
-  *"archive "*) printf snapshot;;
-  *"show "*) printf BOOTSTRAP_CODE_MUST_NOT_BE_DUMPED;;
-  *) exit 98;;
-esac
-''')
+            git.write_text('#!/bin/sh\necho "Root snapshot must not require Git" >&2\nexit 98\n')
             sudo = bin_dir / 'sudo'
             sudo.write_text('#!/bin/sh\necho "simulated receiver failure" >&2\nexit 42\n')
             for command in (git, sudo):
@@ -214,7 +233,7 @@ esac
             self.assertNotEqual(result.returncode, 0)
             self.assertIn('sudo failed (exit 42)', result.stderr)
             self.assertIn('simulated receiver failure', result.stderr)
-            self.assertNotIn('BOOTSTRAP_CODE_MUST_NOT_BE_DUMPED', result.stderr)
+            self.assertNotIn('def receive(', result.stderr)
             self.assertLess(len(result.stderr), 200)
 
 

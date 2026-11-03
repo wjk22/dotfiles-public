@@ -110,10 +110,15 @@ if [ "$root_mode" = yes ]; then
     command -v zsh >/dev/null || die 'Install zsh with the normal installer first.'
 else
     dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a git checkout; clone the repo and run it from there."
-    [ -z "$dirty" ] || die "The repo has uncommitted changes; commit or stash them first ($(printf '%s\n' "$dirty" | awk '{print $2}' | paste -sd ' ' -))."
     new_commit=$(git -C "$repo" rev-parse HEAD)
 fi
-check_ok Repo "clean at ${new_commit:0:7}"
+if [ "$root_mode" = yes ]; then
+    check_ok Repo "private snapshot ${new_commit:0:12}"
+elif [ -n "$dirty" ]; then
+    check_ok Repo "${new_commit:0:7} with local changes; installing current checkout files"
+else
+    check_ok Repo "clean at ${new_commit:0:7}"
+fi
 
 # Backups go to ~/.dotfiles-backup (private, 0700); never through a link.
 if [ -L "$HOME/.dotfiles-backup" ] || { [ -e "$HOME/.dotfiles-backup" ] && [ ! -d "$HOME/.dotfiles-backup" ]; }; then
@@ -134,7 +139,7 @@ printf '\n'
 if [ -z "$old_commit" ]; then
     printf '  %s %s %s\n' 'not installed yet' "$arrow" "${new_commit:0:7}"
 elif [ "$old_commit" = "$new_commit" ]; then
-    printf '  %s, nothing new in this checkout\n' "${new_commit:0:7}"
+    printf '  %s, same base; applying current checkout files\n' "${new_commit:0:7}"
 else
     printf '  %s %s %s' "${old_commit:0:7}" "$arrow" "${new_commit:0:7}"
     if [ "$root_mode" = no ] && git -C "$repo" merge-base --is-ancestor "$old_commit" "$new_commit" 2>/dev/null; then
