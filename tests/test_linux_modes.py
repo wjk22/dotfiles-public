@@ -9,6 +9,7 @@ import importlib.util
 import io
 import os
 import pty
+import re
 import select
 import signal
 import struct
@@ -40,6 +41,12 @@ class RootTests(unittest.TestCase):
         (self.home / '.alias.local').write_text('alias root_local_test=true\n')
         for relative in ('', '/custom/plugins/zsh-autosuggestions', '/custom/plugins/zsh-syntax-highlighting', '/custom/themes/powerlevel10k'):
             (self.home / ('.oh-my-zsh' + relative) / '.git').mkdir(parents=True)
+        # Root's own pinned lazydocker, already current: the sandbox has no network.
+        version = re.search(r'^lazydocker_version=(\S+)$', (REPO / 'install.sh').read_text(), re.M).group(1)
+        lazydocker = self.home / '.local' / 'bin' / 'lazydocker'
+        lazydocker.parent.mkdir(parents=True, mode=0o755)
+        lazydocker.write_text(f'#!/bin/sh\necho "Version: {version}"\n')
+        lazydocker.chmod(0o755)
         self.git = self.work / 'git'
         self.git.write_text('''#!/bin/sh
 case "$*" in
@@ -144,6 +151,8 @@ esac
     def test_install_backup_and_idempotence(self):
         first = self.run_root()
         self.assertEqual(first.returncode, 0, first.stdout.decode() + first.stderr.decode())
+        # Root gets its own lazydocker step; the pinned copy is already current here.
+        self.assertRegex(first.stdout.decode(), r'Lazydocker\s+already \d')
         link = self.home / '.zshrc'
         self.assertTrue(link.is_symlink())
         self.assertTrue(os.readlink(link).startswith('/root/.dotfiles/'))

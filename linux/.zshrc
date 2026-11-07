@@ -5,8 +5,9 @@ if (( EUID == 0 )); then
   export XDG_DATA_HOME=/root/.local/share XDG_STATE_HOME=/root/.local/state
   unset ZSH_CUSTOM ZSH_CACHE_DIR ZSH_COMPDUMP ZDOTDIR EZA_CONFIG_DIR EZA_COLORS EXA_COLORS
   # Debian system functions only; do not inherit a normal user's FPATH.
+  # Recursive: the completions live one level deeper (functions/Completion/Unix, ...).
   fpath=(/usr/local/share/zsh/site-functions /usr/share/zsh/vendor-functions
-         /usr/share/zsh/vendor-completions /usr/share/zsh/functions/*(N/))
+         /usr/share/zsh/vendor-completions /usr/share/zsh/functions/**/*(N/))
   path=(/root/.local/bin /usr/local/sbin /usr/local/bin /usr/sbin /usr/bin /sbin /bin)
 fi
 

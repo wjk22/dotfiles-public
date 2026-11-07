@@ -156,7 +156,10 @@ The privileged part needs sudo to inspect and write root's home and change root'
 login shell. It shows the destination files before asking for `a` to apply.
 It reuses the shell files and the existing installer's plugin, backup and link
 steps. Root mode does not install packages or fonts: system Git and zsh must
-already be installed; the normal setup supplies the other system tools.
+already be installed; the normal setup supplies the other system tools. The one
+exception is lazydocker, which isn't a Debian package: root gets its own pinned,
+checksum-checked copy in `/root/.local/bin`, since root never uses a user's
+`~/.local/bin`.
 
 Root's config links point into **`/root/.dotfiles/<snapshot-id>/`**, a root-owned
 snapshot of allowlisted regular files from your checkout, never into your checkout.

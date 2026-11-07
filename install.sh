@@ -201,11 +201,13 @@ for key in "${keys[@]}"; do
 done
 
 if [ "$root_mode" = yes ]; then
-    keys=(ohmyzsh shell links)
-    labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root shell config (backup first)')
-    details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "$link_list")
+    # Root gets no apt packages from here, but its own pinned lazydocker:
+    # root's PATH never sees a user's ~/.local/bin.
+    keys=(ohmyzsh shell lazydocker links)
+    labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root-owned lazydocker' 'Root shell config (backup first)')
+    details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "/root/.local/bin/lazydocker $lazydocker_version (checksum-checked)" "$link_list")
     answer[packages]=no; answer[fonts]=no; answer[mail]=no
-    answer[ohmyzsh]=yes; answer[shell]=yes; answer[links]=yes
+    answer[ohmyzsh]=yes; answer[shell]=yes; answer[lazydocker]=yes; answer[links]=yes
 fi
 
 yn() { if [ "$1" = yes ]; then printf 'Y/n'; else printf 'y/N'; fi; }
@@ -298,6 +300,11 @@ validate() {
     if [ "${answer[mail]}" = yes ] && [ "${answer[packages]}" = no ]; then
         for tool in python3 nvim; do
             command -v "$tool" >/dev/null || { echo "$tool is needed for mail; enable core packages or install it first."; return; }
+        done
+    fi
+    if [ "${answer[lazydocker]:-no}" = yes ]; then
+        for tool in curl tar sha256sum; do
+            command -v "$tool" >/dev/null || { echo "$tool is needed for lazydocker; run the normal installer first."; return; }
         done
     fi
     if [ "${answer[packages]}" = no ]; then
@@ -501,23 +508,19 @@ apt_install() {
     run sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
 }
 
-printf '\n'
-
-if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
-    package_count=$((${#base_packages[@]} + ${#tool_packages[@]}))
-    step Packages "$package_count apt packages, lazydocker"
-    done_packages=()
-    if [ "${#want_packages[@]}" -gt 0 ]; then
-        apt_install "${want_packages[@]}"
-        done_packages+=("${want_packages[@]}")
-    fi
+# The pinned lazydocker release into ~/.local/bin (/root/.local/bin in root mode).
+# Sets lazydocker_result: installed, current or skipped.
+install_lazydocker() {
+    local arch tmp file lazydocker=$HOME/.local/bin/lazydocker
     case $(dpkg --print-architecture) in
         amd64) arch=x86_64 ;; arm64) arch=arm64 ;; *) arch='' ;;
     esac
-    lazydocker=$HOME/.local/bin/lazydocker
     if [ -z "$arch" ]; then
         printf 'lazydocker: no pinned build for %s, skipped\n' "$(dpkg --print-architecture)" >> "$log"
-    elif ! "$lazydocker" --version 2>/dev/null | grep -qx "Version: $lazydocker_version"; then
+        lazydocker_result=skipped
+    elif "$lazydocker" --version 2>/dev/null | grep -qx "Version: $lazydocker_version"; then
+        lazydocker_result=current
+    else
         tmp=$(mktemp -d)
         file=lazydocker_${lazydocker_version}_Linux_$arch.tar.gz
         run curl -fL --progress-bar -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
@@ -528,8 +531,22 @@ if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
         [ ! -e "$lazydocker" ] || backup "$lazydocker"
         run install -m 755 "$tmp/lazydocker" "$lazydocker"
         rm -rf -- "$tmp"
-        done_packages+=("lazydocker $lazydocker_version")
+        lazydocker_result=installed
     fi
+}
+
+printf '\n'
+
+if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
+    package_count=$((${#base_packages[@]} + ${#tool_packages[@]}))
+    step Packages "$package_count apt packages, lazydocker"
+    done_packages=()
+    if [ "${#want_packages[@]}" -gt 0 ]; then
+        apt_install "${want_packages[@]}"
+        done_packages+=("${want_packages[@]}")
+    fi
+    install_lazydocker
+    [ "$lazydocker_result" != installed ] || done_packages+=("lazydocker $lazydocker_version")
     # tealdeer needs its page cache once; later updates are `tldr --update`.
     # Optional: a failure here is a warning, not a stop.
     if command -v tldr >/dev/null && [ ! -d "${XDG_CACHE_HOME:-$HOME/.cache}/tealdeer/tldr-pages" ]; then
@@ -621,6 +638,16 @@ if [ "${answer[shell]}" = yes ] && [ "$skip_shell" = no ]; then
         changes+=("login shell: $login_shell $arrow $zsh_path")
         passed "$login_shell $arrow $zsh_path"
     fi
+fi
+
+if [ "$root_mode" = yes ] && [ "${answer[lazydocker]:-no}" = yes ]; then
+    step Lazydocker "pinned $lazydocker_version for root"
+    install_lazydocker
+    case $lazydocker_result in
+        installed) changes+=("lazydocker: $lazydocker_version in /root/.local/bin"); passed "installed $lazydocker_version" ;;
+        current) passed "already $lazydocker_version" ;;
+        *) warnings+=('lazydocker: no pinned build for this architecture, skipped.'); passed 'skipped (architecture)' ;;
+    esac
 fi
 
 if [ "${answer[fonts]}" = yes ] && [ "$skip_fonts" = no ]; then

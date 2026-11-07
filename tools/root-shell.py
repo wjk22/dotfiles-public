@@ -141,6 +141,7 @@ def receive(revision, yes):
             action = 'replace with timestamped backups' if path.exists() or path.is_symlink() else 'create'
         print(f'  {path}: {action}')
     print('  /root/.oh-my-zsh: root-owned upstream plugins; root login shell: zsh')
+    print('  /root/.local/bin/lazydocker: pinned release, checksum-checked')
     print('  Local overrides kept; no system packages, fonts or normal-user config copied.', flush=True)
     if not yes:
         # A buffered read/write stream (r+) requires seeking; a TTY cannot seek.
