@@ -523,7 +523,7 @@ install_lazydocker() {
     else
         tmp=$(mktemp -d)
         file=lazydocker_${lazydocker_version}_Linux_$arch.tar.gz
-        run curl -fL --progress-bar -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
+        run curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 --progress-bar -o "$tmp/$file" "https://github.com/jesseduffield/lazydocker/releases/download/v$lazydocker_version/$file"
         printf '%s  %s\n' "${lazydocker_sha256[$arch]}" "$tmp/$file" > "$tmp/sum"
         run sha256sum -c "$tmp/sum"
         run tar -xzf "$tmp/$file" -C "$tmp" lazydocker
@@ -661,7 +661,7 @@ if [ "${answer[fonts]}" = yes ] && [ "$skip_fonts" = no ]; then
             continue
         fi
         tmp=$(mktemp)
-        run curl -fL --progress-bar -o "$tmp" "$fonts_url/${font// /%20}"
+        run curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 --progress-bar -o "$tmp" "$fonts_url/${font// /%20}"
         [ "$(sha256sum < "$tmp" | cut -d' ' -f1)" = "${font_sha256[$font]}" ] || { rm -f -- "$tmp"; fail "Checksum mismatch for $font."; }
         [ ! -e "$font_dir/$font" ] || backup "$font_dir/$font"
         mv -- "$tmp" "$font_dir/$font"
