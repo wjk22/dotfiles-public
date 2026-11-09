@@ -1,0 +1,12 @@
+# Ghostty, linked to ~/.config/ghostty/config.ghostty by ./install.sh on macOS.
+# Personal settings go in ~/Library/Application Support/com.mitchellh.ghostty/config.ghostty;
+# Ghostty loads that file after this one. All options: ghostty +show-config --default --docs
+
+# The p10k font from the installer's font step, as on Linux and Windows.
+font-family = MesloLGS NF
+
+# Option works as Alt: tmux's Alt-←/→ window switching and zsh's word jumps.
+macos-option-as-alt = true
+
+# SSH: put Ghostty's terminfo on hosts that lack it; fall back to xterm-256color.
+shell-integration-features = ssh-terminfo,ssh-env

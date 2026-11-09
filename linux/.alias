@@ -18,6 +18,8 @@ alias eall='v ~/.alias.local ; source ~/.alias'
 # Debian's names for bat and fd
 command -v bat >/dev/null || { command -v batcat >/dev/null && alias bat='batcat'; }
 command -v fd >/dev/null || { command -v fdfind >/dev/null && alias fd='fdfind'; }
+# Homebrew's name for gdu (coreutils already has a gdu: GNU du)
+command -v gdu-go >/dev/null && alias gdu='gdu-go'
 
 # Use bat for interactive file viewing; keep the familiar bcat name too.
 if command -v bat >/dev/null; then
@@ -54,7 +56,7 @@ alias lt='du -sh * | sort -h'
 alias g=git
 alias c=clear
 alias k='kill -9'
-alias f='find -name'
+alias f='find . -name'
 alias ..='cd ..'
 alias ...='cd ../..'
 alias h='history'
@@ -63,8 +65,12 @@ alias df='df -h'
 alias du='du -h'
 alias cpv='rsync -ah --info=progress2'
 
-# Network
-alias ports='ss -tulanp'
+# Network (macOS has no ss)
+if command -v ss >/dev/null; then
+  alias ports='ss -tulanp'
+else
+  alias ports='lsof -nP -iTCP -sTCP:LISTEN -iUDP'
+fi
 
 # Cheat sheet for this setup
 help-dots() {

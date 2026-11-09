@@ -1,6 +1,6 @@
 # dotfiles-public — v0.4.2
 
-My everyday shell setup for **Debian, WSL and Windows**: familiar shortcuts,
+My everyday shell setup for **Debian, WSL, macOS and Windows**: familiar shortcuts,
 useful terminal tools, readable prompts, and a little history. I still prefer
 zsh over fish, still use Ctrl-a in tmux, and my directory colours go back to 1996 :P
 
@@ -52,6 +52,21 @@ changes are reported at the end; selected steps remain selected for a later
 be prepared before an administrator installs NeoMutt. Without `--sudo`, the login
 shell stays as it is; run `exec zsh` to use the configured shell in this session.
 
+### macOS 13+
+
+The same command. On a Mac, `install.sh` hands over to `macos/install.zsh`:
+macOS still ships bash 3.2, and every Mac has zsh. `git clone` asks for the
+Command Line Tools the first time; install them, then clone again.
+
+```sh
+git clone https://github.com/wjk22/dotfiles-public.git
+cd dotfiles-public
+./install.sh --sudo
+```
+
+`--sudo` is needed once, for Homebrew's own installer. Later runs and all
+`brew` installs work without it.
+
 ### Windows 10/11
 
 Prefer a checkout on a Windows drive, for example `C:\dev\Workspace\dotfiles-public`.
@@ -97,7 +112,7 @@ The Windows installer installs the fonts but does not change Terminal settings.
 
 ## What gets installed
 
-Both setups include lazygit, lazydocker, ripgrep, fzf, fd, bat, eza, zoxide,
+All setups include lazygit, lazydocker, ripgrep, fzf, fd, bat, eza, zoxide,
 btop, dust, gdu, duf and tealdeer. Windows package choices are configurable.
 
 ### Linux
@@ -142,6 +157,31 @@ blue directories, cyan links, green executables, red archives, magenta images an
 white videos. GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses
 it too. Modern extensions follow the original groups. If eza is unavailable,
 the listing aliases fall back to GNU ls.
+
+### macOS
+
+The same six steps as on Linux, with Homebrew instead of apt: packages and
+Ghostty, Oh My Zsh and plugins, zsh as login shell (already the macOS default),
+fonts into `~/Library/Fonts`, dotfile links, and NeoMutt. There is no root mode.
+
+- **Homebrew** comes from its official installer, pinned to a commit and
+  checked against a checksum like every other download here. Apple silicon
+  keeps it in `/opt/homebrew`; `.zshrc` adds it to the PATH.
+- **The tools** are the Linux list from Homebrew, plus `coreutils` for GNU
+  `dircolors` and `gls`. macOS brings its own curl, zsh, tcpdump, dig, unzip
+  and python3; `iptraf-ng` and `iproute2` are Linux only. Homebrew installs
+  gdu as `gdu-go`; the alias keeps `gdu`.
+- **Ghostty** is the terminal: native, fast, configured by a plain text file.
+  [`macos/.config/ghostty/config.ghostty`](macos/.config/ghostty/config.ghostty)
+  sets MesloLGS NF, Option as Alt (for tmux's `Alt-←`/`Alt-→`) and installs
+  Ghostty's terminfo on SSH hosts that lack it. Personal Ghostty settings go in
+  `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`, which
+  Ghostty loads after the shared file. A Ghostty installed by hand is left alone.
+- **The shell files** are the same files as on Linux, linked from `linux/`;
+  the few macOS differences are handled inside them (Homebrew PATH,
+  `gdircolors`, `ports` through lsof, tmux's zsh path).
+
+Logs go to `~/.local/state/dotfiles/logs/install-macos-*.log`.
 
 ### The same shell for root
 
@@ -369,7 +409,7 @@ Each applied run has a log, and the final summary prints its location:
 The ten newest installer logs are retained. Failed downloads or packages remain
 visible in the logs even when the rest of a Windows run completes.
 
-Developer checks: `bash -n install.sh` and
+Developer checks: `bash -n install.sh`, `zsh -n macos/install.zsh` and
 `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v`.
 Root integration tests require bubblewrap and user namespaces and mount a
 disposable `/root`; they must never be replaced with a live root install.
@@ -392,7 +432,7 @@ I also use Bitwarden, Seafile and a private Git server for my own setup.
 [Total Commander Ultima Prime](https://www.tcup.pl/index.php/en/) remains a
 personal favourite; see [Total Commander](https://www.ghisler.com/) for licensing.
 More favourites live in my [awesome-list](https://github.com/wjk22/awesome-list).
-Mac: no installer here — I stopped using it :P
+Mac: I stopped using it, then came back for a junk dev box :P
 
 Inspired to publish my version by [Craftzdog](https://github.com/craftzdog/dotfiles-public).
 

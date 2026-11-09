@@ -3,7 +3,7 @@
 The cheat sheet for this setup. `help-dots` shows it in the terminal (zsh and
 PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 
-## Tools (Linux and Windows)
+## Tools (Linux, macOS and Windows)
 
 | Tool | What it's for | The keys that matter |
 |---|---|---|
@@ -13,7 +13,7 @@ PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 | `fzf` | fuzzy finder | zsh: `Ctrl-r` history, `Ctrl-t` insert a file, `Alt-c` cd into a folder; PowerShell: `Ctrl+r` history, `Ctrl+f` file |
 | `fd` | find files by name | `fd name`, `fd -e md` (by extension), `fd -H name` (hidden files too) |
 | `bat` | cat with colours and line numbers | `bat file`, `bat -p file` (plain), `bat -l json` (pick a language) |
-| `cat`, `bcat` | use bat by default in zsh and PowerShell | `cat file`, `bcat file`; original reader: `command cat` on Linux, `Get-Content` in PowerShell |
+| `cat`, `bcat` | use bat by default in zsh and PowerShell | `cat file`, `bcat file`; original reader: `command cat` in zsh, `Get-Content` in PowerShell |
 | `eza` | ls with colours, git status, icons | `el` long, `esa` long with hidden, `eza --tree -L 2` |
 | `zoxide` | jump to folders you've used | `z proj` jumps to the best match, `zi proj` picks from a list, `z -` back |
 | `btop` | processes, CPU, memory, disks, network | `f` filter, `k` kill the selected process, `q` quit |
@@ -21,11 +21,12 @@ PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 | `gdu` | interactive cleanup of a disk or folder | `gdu ~`, then `d` delete, `s` / `n` sort by size / name, `q` quit |
 | `duf` | free space on all drives | `duf`, `duf --only local` |
 | `tealdeer` | short examples for any command | `tldr tar`, `tldr --update` (refresh the pages) |
-| `inxi` (Linux) | what's in this machine | `inxi -b` (basic), `inxi -Fxz` (everything, private data hidden) |
+| `inxi` (Linux, macOS) | what's in this machine | `inxi -b` (basic), `inxi -Fxz` (everything, private data hidden) |
 
 On Debian, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names work.
+On macOS, Homebrew calls gdu `gdu-go`; the alias makes `gdu` work.
 
-## zsh (Linux)
+## zsh (Linux and macOS)
 
 - `Prompt:` powerlevel10k. `p10k configure` builds a new one.
 - `Autosuggestions:` grey text after the cursor comes from your history; `→` accepts it.
@@ -38,17 +39,17 @@ On Debian, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names
   | `eall` | edit personal `~/.alias.local` and reload aliases (use this for your own aliases) |
   | `ls` `es` | eza listing with automatic icons and soft colours |
   | `ll` `el` / `lla` `esa` | eza long / long with hidden |
-  | `command ls --color=auto` | GNU ls with the historical 1996 palette |
+  | `command ls --color=auto` | GNU ls with the historical 1996 palette (macOS: `gls --color=auto`) |
   | `lt` | folder sizes sorted |
   | `v` `vi` `vim` `evi` | nvim / edit the nvim config |
   | `nmutt` | NeoMutt mail client |
   | `g` `c` `h` `hh` | git / clear / history / last 10 |
   | `..` `...` | up one / two folders |
   | `cpv` | copy with a progress bar (rsync) |
-  | `ports` | listening ports and connections (ss) |
+  | `ports` | listening ports and connections (ss; lsof on macOS) |
   | `help-dots` | this page |
 
-## tmux (Linux)
+## tmux (Linux and macOS)
 
 The prefix is `Ctrl-a`; press it, let go, then the key.
 

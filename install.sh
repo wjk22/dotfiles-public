@@ -6,6 +6,8 @@
 set -euo pipefail
 
 repo=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+# A Mac has its own installer, in zsh: macOS still ships bash 3.2, too old for this one.
+if [ "$(uname -s)" = Darwin ]; then exec /bin/zsh "$repo/macos/install.zsh" "$@"; fi
 started=$(date +%s)
 
 usage() {
@@ -14,7 +16,8 @@ Usage: ./install.sh [root|mail] [--yes] [--sudo]
 
   Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
   tmux, fonts, NeoMutt and the dotfiles from linux/.
-  On Windows, run .\install.ps1 in PowerShell instead.
+  On Windows, run .\install.ps1 in PowerShell instead; on a Mac this
+  same command runs macos/install.zsh (./install.sh --help there).
 
   root      same shell for root, from a private root-owned snapshot
   mail      install the NeoMutt presentation config for your user

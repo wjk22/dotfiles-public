@@ -17,6 +17,12 @@ if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]
   source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
 fi
 
+# macOS: Homebrew on Apple silicon lives outside the default PATH; the plugins
+# below need its tools (fzf, zoxide). Intel's /usr/local/bin is already there.
+if [[ -x /opt/homebrew/bin/brew ]]; then
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
 # The repo this file is linked from (help-dots reads HELP.md there).
 export DOTFILES=${${(%):-%x}:A:h:h}
 
@@ -47,9 +53,14 @@ path=("$HOME/.local/bin" $path)
 source ~/.alias
 
 # Keep the 1996 palette in one data file; do not overwrite it with /etc defaults.
-if (( $+commands[dircolors] )) && [[ -r ~/.dir_colors ]]; then
-  eval "$(dircolors -b ~/.dir_colors)"
-fi
+# On macOS, GNU dircolors comes from Homebrew's coreutils as gdircolors.
+for _dircolors in dircolors gdircolors; do
+  if (( $+commands[$_dircolors] )) && [[ -r ~/.dir_colors ]]; then
+    eval "$($_dircolors -b ~/.dir_colors)"
+    break
+  fi
+done
+unset _dircolors
 zstyle ':completion:*:default' list-colors "${(s.:.)LS_COLORS}"
 
 # Put personal settings (PATH additions, tokens, ...) in ~/.zshrc.local.
