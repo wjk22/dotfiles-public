@@ -28,8 +28,9 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 
 Clone the repo and run the installer as your normal user. Linux, macOS and
 Windows default to per-user setup, with no sudo or UAC prompts. Add
-**`--sudo`** to allow system changes (or to bootstrap Homebrew on a Mac). On Debian, Git and the tools needed by your selected user steps
-must already be installed. On Windows, Scoop installs tools for your account;
+**`--sudo`** to allow system changes (or to bootstrap Homebrew on a Mac).
+On Debian, Git and the tools needed by your selected user steps must already be
+installed. On Windows, Scoop installs tools for your account;
 Chocolatey system installs use one UAC prompt only with `--sudo`.
 
 ### Debian 13+ / WSL
@@ -155,8 +156,9 @@ is supported by Debian 13's eza 0.21; glyphs can differ slightly between version
 `command ls --color=auto` still invokes GNU ls with the original 1996 palette:
 blue directories, cyan links, green executables, red archives, magenta images and
 white videos. GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses
-it too. Modern extensions follow the original groups. If eza is unavailable, the listing aliases fall back to GNU ls on Linux;
-on macOS they use Homebrew's `gls` when present, or native `ls -G`.
+it too. Modern extensions follow the original groups. If eza is unavailable,
+listing aliases fall back to GNU ls on Linux; on macOS they use Homebrew's
+`gls` when present, or native `ls -G`.
 
 ### macOS
 
@@ -175,8 +177,9 @@ fonts into `~/Library/Fonts`, dotfile links, and NeoMutt. There is no root mode.
   [`macos/.config/ghostty/config.ghostty`](macos/.config/ghostty/config.ghostty)
   sets MesloLGS NF, Option as Alt (for tmux's `Alt-←`/`Alt-→`) and enables
   SSH terminfo setup with a fallback on supported connections. Personal Ghostty
-  settings go in `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`,
-  which Ghostty loads after the shared file. A Ghostty installed by hand is left alone.
+  settings go in
+  `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`, which
+  Ghostty loads after the shared file. A Ghostty installed by hand is left alone.
   On macOS 13 (Ventura), Apple's bundled `infocmp` is too old for *manual* SSH
   terminfo exports; Ghostty 1.4's `ghostty +ssh` avoids this local dependency.
   For a manual export, use Homebrew's `ncurses` `infocmp` instead; see
@@ -407,8 +410,9 @@ parent paths are checked before config changes.
 
 Each applied run has a log, and the final summary prints its location:
 
-- Linux/macOS: `~/.local/state/dotfiles/logs/`, or `$XDG_STATE_HOME/dotfiles/logs/` when set.
-  macOS logs are named `install-macos-*.log`.
+- Linux/macOS: `~/.local/state/dotfiles/logs/`, or
+  `$XDG_STATE_HOME/dotfiles/logs/` when set. macOS logs are named
+  `install-macos-*.log`.
 - Windows: `%LOCALAPPDATA%\dotfiles\logs\`.
 
 The ten newest installer logs are retained. Failed downloads or packages remain
