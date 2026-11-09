@@ -56,10 +56,12 @@ shell stays as it is; run `exec zsh` to use the configured shell in this session
 ### macOS 13+
 
 The same entry point. On a Mac, `install.sh` hands over to `macos/install.zsh`:
-macOS still ships bash 3.2, and every Mac has zsh. `git clone` asks for the
-Command Line Tools the first time; install them, then clone again.
+macOS still ships bash 3.2, and every Mac has zsh. On a fresh Mac, `git` is
+only a placeholder until Apple's Command Line Tools are installed, so install
+them first and wait for the download to finish:
 
 ```sh
+xcode-select --install
 git clone https://github.com/wjk22/dotfiles-public.git
 cd dotfiles-public
 ./install.sh --sudo
