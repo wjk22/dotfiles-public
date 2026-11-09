@@ -26,9 +26,9 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 
 ## Getting started
 
-Clone the repo and run the installer as your normal user. Both Linux and Windows
-default to per-user setup, with no sudo or UAC prompts. Add **`--sudo`** to allow
-system changes. On Debian, Git and the tools needed by your selected user steps
+Clone the repo and run the installer as your normal user. Linux, macOS and
+Windows default to per-user setup, with no sudo or UAC prompts. Add
+**`--sudo`** to allow system changes (or to bootstrap Homebrew on a Mac). On Debian, Git and the tools needed by your selected user steps
 must already be installed. On Windows, Scoop installs tools for your account;
 Chocolatey system installs use one UAC prompt only with `--sudo`.
 
@@ -54,7 +54,7 @@ shell stays as it is; run `exec zsh` to use the configured shell in this session
 
 ### macOS 13+
 
-The same command. On a Mac, `install.sh` hands over to `macos/install.zsh`:
+The same entry point. On a Mac, `install.sh` hands over to `macos/install.zsh`:
 macOS still ships bash 3.2, and every Mac has zsh. `git clone` asks for the
 Command Line Tools the first time; install them, then clone again.
 
@@ -95,7 +95,7 @@ If your PowerShell execution policy already permits local scripts, just use
 
 Enter accepts each suggested answer. The final plan lets you toggle steps by
 number, apply with `a`, or quit with `q`. On later runs, your previous choices
-become the suggestions. `--yes` on Linux and `-Yes` on Windows accept those
+become the suggestions. `--yes` on Linux/macOS and `-Yes` on Windows accept those
 suggestions and apply without asking; they do not mean "enable every step."
 They also never enable administrator actions: `--sudo` must be supplied on each
 run that needs them. Use `./install.sh --help` or `.\install.ps1 -Help` for usage.
@@ -155,8 +155,8 @@ is supported by Debian 13's eza 0.21; glyphs can differ slightly between version
 `command ls --color=auto` still invokes GNU ls with the original 1996 palette:
 blue directories, cyan links, green executables, red archives, magenta images and
 white videos. GNU `dircolors -b` loads it from `~/.dir_colors`; zsh completion uses
-it too. Modern extensions follow the original groups. If eza is unavailable,
-the listing aliases fall back to GNU ls.
+it too. Modern extensions follow the original groups. If eza is unavailable, the listing aliases fall back to GNU ls on Linux;
+on macOS they use Homebrew's `gls` when present, or native `ls -G`.
 
 ### macOS
 
@@ -173,10 +173,14 @@ fonts into `~/Library/Fonts`, dotfile links, and NeoMutt. There is no root mode.
   gdu as `gdu-go`; the alias keeps `gdu`.
 - **Ghostty** is the terminal: native, fast, configured by a plain text file.
   [`macos/.config/ghostty/config.ghostty`](macos/.config/ghostty/config.ghostty)
-  sets MesloLGS NF, Option as Alt (for tmux's `Alt-←`/`Alt-→`) and installs
-  Ghostty's terminfo on SSH hosts that lack it. Personal Ghostty settings go in
-  `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`, which
-  Ghostty loads after the shared file. A Ghostty installed by hand is left alone.
+  sets MesloLGS NF, Option as Alt (for tmux's `Alt-←`/`Alt-→`) and enables
+  SSH terminfo setup with a fallback on supported connections. Personal Ghostty
+  settings go in `~/Library/Application Support/com.mitchellh.ghostty/config.ghostty`,
+  which Ghostty loads after the shared file. A Ghostty installed by hand is left alone.
+  On macOS 13 (Ventura), Apple's bundled `infocmp` is too old for *manual* SSH
+  terminfo exports; Ghostty 1.4's `ghostty +ssh` avoids this local dependency.
+  For a manual export, use Homebrew's `ncurses` `infocmp` instead; see
+  [Ghostty's terminfo guide](https://ghostty.org/docs/help/terminfo).
 - **The shell files** are the same files as on Linux, linked from `linux/`;
   the few macOS differences are handled inside them (Homebrew PATH,
   `gdircolors`, `ports` through lsof, tmux's zsh path).
@@ -362,14 +366,14 @@ Keep machine-specific settings in these files, loaded after the shared defaults:
 
 | System | File | Purpose |
 |---|---|---|
-| Linux / WSL | `~/.zshrc.local` | Shell settings and PATH additions |
-| Linux / WSL | `~/.alias.local` | Personal aliases; `eall` edits and reloads them |
+| Linux / WSL / macOS | `~/.zshrc.local` | Shell settings and PATH additions |
+| Linux / WSL / macOS | `~/.alias.local` | Personal aliases; `eall` edits and reloads them |
 | Windows | `~\.config\powershell.local.ps1` | Personal PowerShell settings and aliases |
 
 Existing custom lines are not automatically merged into the new shared config.
 The installer points out file names and line numbers to review and preserves
 the originals in backups. Move the settings you still want into the local files.
-On Linux, `eal` edits the shared aliases; use `eall` for your own additions.
+On Linux/macOS, `eal` edits the shared aliases; use `eall` for your own additions.
 
 A few favourites:
 
@@ -387,7 +391,7 @@ not guarantee that it meets that configuration's required version.
 
 ## Updates, backups and logs
 
-Pull the repo and rerun the same installer. Both installers use your current
+Pull the repo and rerun the same installer. All three installers use your current
 checkout, including uncommitted edits and untracked files; no commit or stash
 is required. They leave your Git index and local edits alone. The local files
 above are still the easiest place for personal settings across updates.
@@ -403,7 +407,8 @@ parent paths are checked before config changes.
 
 Each applied run has a log, and the final summary prints its location:
 
-- Linux: `~/.local/state/dotfiles/logs/`, or `$XDG_STATE_HOME/dotfiles/logs/` when set.
+- Linux/macOS: `~/.local/state/dotfiles/logs/`, or `$XDG_STATE_HOME/dotfiles/logs/` when set.
+  macOS logs are named `install-macos-*.log`.
 - Windows: `%LOCALAPPDATA%\dotfiles\logs\`.
 
 The ten newest installer logs are retained. Failed downloads or packages remain
