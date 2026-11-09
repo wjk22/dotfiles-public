@@ -98,5 +98,5 @@ oh-my-zsh's tmux plugin adds `ta` (attach), `ts` (new session), `tl` (list) and 
 Pull the repo and run the installer again: `./install.sh` or
 `.\install.ps1`. It shows what's new, asks with your last answers as
 suggestions, and changes only what differs.
-Both run as your normal user by default. Add `--sudo` to allow system packages
-and other administrator steps; `-Yes` / `--yes` alone never enables elevation.
+All three installers run as your normal user by default. Add `--sudo` to allow
+system packages or macOS Homebrew bootstrap; `-Yes` / `--yes` alone never enables elevation.
