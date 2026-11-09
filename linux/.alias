@@ -43,7 +43,17 @@ if command -v eza >/dev/null; then
   alias es='eza --icons=auto'
   alias esa='eza --icons=auto -la'
 else
-  alias ls='ls --color=auto'
+  # macOS has BSD ls, which does not support GNU's --color=auto.
+  # Prefer Homebrew's GNU ls when available; otherwise use BSD's -G.
+  if [[ $OSTYPE == darwin* ]]; then
+    if command -v gls >/dev/null; then
+      alias ls='gls --color=auto'
+    else
+      alias ls='ls -G'
+    fi
+  else
+    alias ls='ls --color=auto'
+  fi
   alias ll='ls -l'
   alias lla='ls -la'
   alias el='ls -l'
