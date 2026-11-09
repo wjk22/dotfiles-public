@@ -99,4 +99,5 @@ Pull the repo and run the installer again: `./install.sh` or
 `.\install.ps1`. It shows what's new, asks with your last answers as
 suggestions, and changes only what differs.
 All three installers run as your normal user by default. Add `--sudo` to allow
-system packages or macOS Homebrew bootstrap; `-Yes` / `--yes` alone never enables elevation.
+system packages or macOS Homebrew bootstrap; `-Yes` / `--yes` alone never
+enables elevation.
