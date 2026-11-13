@@ -519,9 +519,12 @@ apt_install() {
     run sudo -n apt-get update
     # A package without an install candidate fails here with one clear line.
     # On Ubuntu most tools live in universe, which minimal images may lack.
-    local package unavailable=()
+    # Read the whole output (grep -q under pipefail can fail on SIGPIPE) and
+    # in the C locale (apt translates "Candidate").
+    local package candidate unavailable=()
     for package in "$@"; do
-        apt-cache policy "$package" 2>/dev/null | grep -q 'Candidate: [^(]' || unavailable+=("$package")
+        candidate=$(LC_ALL=C apt-cache policy "$package" 2>/dev/null | sed -n 's/^ *Candidate: *//p' | head -n 1 || true)
+        case $candidate in ''|'(none)') unavailable+=("$package") ;; esac
     done
     if [ "${#unavailable[@]}" -gt 0 ]; then
         if [ "$os_id" = ubuntu ]; then
