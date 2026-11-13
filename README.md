@@ -1,6 +1,6 @@
 # dotfiles-public — v0.4.2
 
-My everyday shell setup for **Debian, WSL, macOS and Windows**: familiar shortcuts,
+My everyday shell setup for **Debian, Ubuntu, WSL, macOS and Windows**: familiar shortcuts,
 useful terminal tools, readable prompts, and a little history. I still prefer
 zsh over fish, still use Ctrl-a in tmux, and my directory colours go back to 1996 :P
 
@@ -29,11 +29,11 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 Clone the repo and run the installer as your normal user. Linux, macOS and
 Windows default to per-user setup, with no sudo or UAC prompts. Add
 **`--sudo`** to allow system changes (or to bootstrap Homebrew on a Mac).
-On Debian, Git and the tools needed by your selected user steps must already be
+On Debian and Ubuntu, Git and the tools needed by your selected user steps must already be
 installed. On Windows, Scoop installs tools for your account;
 Chocolatey system installs use one UAC prompt only with `--sudo`.
 
-### Debian 13+ / WSL
+### Debian 13+ / Ubuntu 26.04+ / WSL
 
 ```sh
 git clone https://github.com/wjk22/dotfiles-public.git

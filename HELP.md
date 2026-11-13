@@ -23,7 +23,7 @@ PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 | `tealdeer` | short examples for any command | `tldr tar`, `tldr --update` (refresh the pages) |
 | `inxi` (Linux, macOS) | what's in this machine | `inxi -b` (basic), `inxi -Fxz` (everything, private data hidden) |
 
-On Debian, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names work.
+On Debian and Ubuntu, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names work.
 On macOS, Homebrew calls gdu `gdu-go`; the alias makes `gdu` work.
 
 ## zsh (Linux and macOS)

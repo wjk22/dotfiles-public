@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install or update the dotfiles on Debian (also in WSL). Safe to run again:
+# Install or update the dotfiles on Debian or Ubuntu (also in WSL). Safe to run again:
 # it asks first, changes only what differs and backs up what it replaces.
 #   ./install.sh [--yes]
 # shellcheck disable=SC2088 # "~/..." strings are labels for people, not paths
@@ -14,7 +14,7 @@ usage() {
     cat <<'EOF'
 Usage: ./install.sh [root|mail] [--yes] [--sudo]
 
-  Debian 13 or newer, also in WSL: packages, zsh, oh-my-zsh, p10k,
+  Debian 13+ or Ubuntu 26.04+, also in WSL: packages, zsh, oh-my-zsh, p10k,
   tmux, fonts, NeoMutt and the dotfiles from linux/.
   On Windows, run .\install.ps1 in PowerShell instead; on a Mac this
   same command runs macos/install.zsh (./install.sh --help there).
@@ -78,14 +78,23 @@ duration() {
 printf '\n%s%s%s\n\n' "$bold" "$title" "$reset"
 
 [ "$(uname -s)" = Linux ] || die 'This is not Linux; on Windows run .\install.ps1 in PowerShell.'
-[ -r /etc/os-release ] || die 'Cannot read /etc/os-release, so this does not look like Debian.'
+[ -r /etc/os-release ] || die 'Cannot read /etc/os-release, so this does not look like Debian or Ubuntu.'
 # shellcheck source=/dev/null
 IFS='|' read -r os_id os_version os_name < <(. /etc/os-release; printf '%s|%s|%s\n' "${ID:-}" "${VERSION_ID:-}" "${PRETTY_NAME:-${ID:-}}")
-[ "$os_id" = debian ] || die "This installer is for Debian; this system is $os_name."
-# Testing and sid have no VERSION_ID. eza and lazygit need trixie (13) or newer.
-if [ -n "$os_version" ] && [ "${os_version%%.*}" -lt 13 ]; then
-    die "Debian $os_version is too old; eza and lazygit need Debian 13 (trixie) or newer."
-fi
+# Ubuntu by its own ID, not ID_LIKE: other Debian derivatives are untested.
+# eza and lazygit need Debian 13 (trixie) or Ubuntu 26.04 or newer.
+case $os_id in
+    debian)
+        # Testing and sid have no VERSION_ID.
+        if [ -n "$os_version" ] && [ "${os_version%%.*}" -lt 13 ]; then
+            die "Debian $os_version is too old; eza and lazygit need Debian 13 (trixie) or newer."
+        fi ;;
+    ubuntu)
+        if [ -z "$os_version" ] || [ "${os_version%%.*}" -lt 26 ]; then
+            die "Ubuntu ${os_version:-?} is too old; eza and lazygit need Ubuntu 26.04 or newer."
+        fi ;;
+    *) die "This installer is for Debian or Ubuntu; this system is $os_name." ;;
+esac
 wsl=no
 if [ -e /proc/sys/fs/binfmt_misc/WSLInterop ] || grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null; then wsl=yes; fi
 check_ok System "$os_name$([ "$wsl" = yes ] && printf ' (WSL)')"
@@ -508,6 +517,18 @@ sudo_ready() {
 apt_install() {
     sudo_ready
     run sudo -n apt-get update
+    # A package without an install candidate fails here with one clear line.
+    # On Ubuntu most tools live in universe, which minimal images may lack.
+    local package unavailable=()
+    for package in "$@"; do
+        apt-cache policy "$package" 2>/dev/null | grep -q 'Candidate: [^(]' || unavailable+=("$package")
+    done
+    if [ "${#unavailable[@]}" -gt 0 ]; then
+        if [ "$os_id" = ubuntu ]; then
+            fail "Not available from apt: ${unavailable[*]}. Enable universe (sudo add-apt-repository universe), then run ./install.sh again."
+        fi
+        fail "Not available from apt: ${unavailable[*]}."
+    fi
     run sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$@"
 }
 
