@@ -659,15 +659,23 @@ if ($answer['modules'] -eq 'yes' -and -not $skipModules) {
     # Runs in pwsh: modules installed from Windows PowerShell land where pwsh doesn't look.
     $moduleScript = @"
 `$ErrorActionPreference = 'Stop'
+# Always PSGallery: newer PSResourceGet also registers the Microsoft Artifact
+# Registry (MAR) with a higher priority, which doesn't host these modules.
 foreach (`$name in '$($modules -join "','")') {
-    `$latest = Find-PSResource -Name `$name -Repository PSGallery
-    `$have = Get-InstalledPSResource -Name `$name -Scope CurrentUser -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1
-    if (-not `$have) {
-        Install-PSResource -Name `$name -Scope CurrentUser -TrustRepository -Quiet
-        "CHANGED: `$name `$(`$latest.Version)"
-    } elseif (`$latest.Version -gt `$have.Version) {
-        Update-PSResource -Name `$name -Scope CurrentUser -TrustRepository -Quiet
-        "CHANGED: `$name `$(`$have.Version) -> `$(`$latest.Version)"
+    try {
+        `$latest = Find-PSResource -Name `$name -Repository PSGallery
+        `$have = Get-InstalledPSResource -Name `$name -Scope CurrentUser -ErrorAction SilentlyContinue | Sort-Object Version -Descending | Select-Object -First 1
+        if (-not `$have) {
+            Install-PSResource -Name `$name -Repository PSGallery -Scope CurrentUser -TrustRepository -Quiet
+            "CHANGED: `$name `$(`$latest.Version)"
+        } elseif (`$latest.Version -gt `$have.Version) {
+            Update-PSResource -Name `$name -Repository PSGallery -Scope CurrentUser -TrustRepository -Quiet
+            "CHANGED: `$name `$(`$have.Version) -> `$(`$latest.Version)"
+        }
+    } catch {
+        # One readable line instead of pwsh's error frame split over stderr.
+        "FAILED: `${name}: `$(`$_.Exception.Message)"
+        exit 1
     }
 }
 foreach (`$old in 'oh-my-posh', 'posh-git', 'z') {
