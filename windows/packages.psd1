@@ -39,5 +39,6 @@
         'gdu'
         'duf'
         'tealdeer'
+        'tinta'
     )
 }
