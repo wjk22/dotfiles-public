@@ -617,19 +617,27 @@ if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
     $missing = @($scoopApps | Where-Object { -not (Test-Path (Join-Path $scoopRoot "apps\$_\current")) })
     # extras needs git, so git comes first.
     if ($missing -contains 'git') { Invoke-Logged { scoop install git } 'scoop install git' }
-    if (-not (Test-Path (Join-Path $scoopRoot 'buckets\extras'))) {
-        Invoke-Logged { scoop bucket add extras } 'scoop bucket add extras'
+    # A bucket counts only with manifests in it: an interrupted 'bucket add' leaves
+    # a folder that scoop treats as a bucket with nothing in it.
+    foreach ($bucket in 'main', 'extras') {
+        $bucketDir = Join-Path $scoopRoot "buckets\$bucket"
+        $hasManifests = (Test-Path -LiteralPath (Join-Path $bucketDir '.git')) -and
+            [bool](Get-ChildItem -LiteralPath (Join-Path $bucketDir 'bucket') -Filter '*.json' -File -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($hasManifests) { continue }
+        if (Test-Path -LiteralPath $bucketDir) { Invoke-Logged { scoop bucket rm $bucket } "scoop bucket rm $bucket" }
+        Invoke-Logged { scoop bucket add $bucket } "scoop bucket add $bucket"
     }
-    $rest = @($missing | Where-Object { $_ -ne 'git' })
-    if ($rest.Count -gt 0) { Invoke-Logged { scoop install @rest } "scoop install $($rest -join ' ')" }
+    # Refresh the buckets before installing: an old clone may not know a newer app.
+    Invoke-Logged { scoop update } 'scoop update'
+    # One app at a time, so one bad name doesn't take the rest of the list with it.
+    foreach ($app in @($missing | Where-Object { $_ -ne 'git' })) { $null = Invoke-LoggedCode { scoop install $app } }
     # scoop can report success while one app failed, so check each one landed.
     $stillMissing = @($scoopApps | Where-Object { -not (Test-Path (Join-Path $scoopRoot "apps\$_\current")) })
-    if ($stillMissing.Count -gt 0) { Stop-Step "scoop did not install $($stillMissing -join ' ')." }
-    $scoopDone += $missing
-    # Updates: refresh the buckets, then update only this set.
+    $installed = @($scoopApps | Where-Object { $stillMissing -notcontains $_ })
+    $scoopDone += @($missing | Where-Object { $stillMissing -notcontains $_ })
+    # Updates: only this set; the buckets were refreshed above.
     $before = (Get-Item -LiteralPath $log).Length
-    Invoke-Logged { scoop update } 'scoop update'
-    Invoke-Logged { scoop update @scoopApps } 'scoop update (apps)'
+    if ($installed.Count -gt 0) { Invoke-Logged { scoop update @installed } 'scoop update (apps)' }
     $stream = [IO.File]::Open($log, 'Open', 'Read', 'ReadWrite')
     try {
         $null = $stream.Seek($before, 'Begin')
@@ -638,11 +646,25 @@ if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0) {
     $updatedApps = @([regex]::Matches($tail, "Updating '([^']+)'") | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
     if ($updatedApps.Count -gt 0) { $scoopDone += ($updatedApps | ForEach-Object { "$_ (updated)" }) }
     # tealdeer needs its page cache once; later updates are tldr --update.
-    if ($missing -contains 'tealdeer') {
+    if ($missing -contains 'tealdeer' -and $installed -contains 'tealdeer') {
         if ((Invoke-LoggedCode { tldr --update }) -eq 0) { $scoopDone += 'tldr pages' }
         else { $warnings.Add('tldr --update failed (network?); run it later, tldr works without pages until then.') }
     }
-    if ($scoopDone.Count -eq 0) {
+    if ($stillMissing.Count -gt 0) {
+        # The rest is in place. Without any PowerShell 7, skip only what needs it.
+        if ($scoopDone.Count -gt 0) { $changes.Add("scoop: $($scoopDone -join ' ')") }
+        Warn-Step "scoop did not install $($stillMissing -join ' '); the other tools are in place. See the log."
+        if ($stillMissing -contains 'pwsh' -and -not (Test-Path (Resolve-Pwsh))) {
+            if ($answer['modules'] -eq 'yes' -and -not $skipModules) {
+                $skipModules = $true
+                $warnings.Add('Modules skipped: PowerShell 7 is unavailable after the Scoop failure.')
+            }
+            if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
+                $skipConfig = $true
+                $warnings.Add('PowerShell config skipped: PowerShell 7 is unavailable after the Scoop failure.')
+            }
+        }
+    } elseif ($scoopDone.Count -eq 0) {
         Complete-Step "all $($scoopApps.Count) installed, up to date"
     } else {
         $changes.Add("scoop: $($scoopDone -join ' ')")

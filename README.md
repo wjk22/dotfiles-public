@@ -333,7 +333,9 @@ Scoop list for a fresh user setup, or provide an existing PowerShell 7.4+ runtim
 
 Scoop output appears in the main terminal; with `--sudo`, Chocolatey output appears in its
 elevated window. Both are logged. If Chocolatey fails or elevation is cancelled,
-the installer continues and finishes with warnings. If PowerShell itself is
+the installer continues and finishes with warnings. Scoop installs one tool at a
+time after refreshing its buckets (an empty or half-added bucket is added again),
+so a tool that fails is reported while the others still install. If PowerShell itself is
 missing or too old, the dependent steps are skipped and reported. Other failures
 still stop their run; the installer does not claim that failed work succeeded.
 
