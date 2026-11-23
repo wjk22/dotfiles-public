@@ -182,7 +182,14 @@ listing aliases fall back to GNU ls on Linux; on macOS they use Homebrew's
 
 The same six steps as on Linux, with Homebrew instead of apt: packages and
 Ghostty, Oh My Zsh and plugins, zsh as login shell (already the macOS default),
-fonts into `~/Library/Fonts`, dotfile links, and NeoMutt. There is no root mode.
+fonts into `~/Library/Fonts`, dotfile links (including the shared Neovim config),
+and NeoMutt. A seventh turns Apple's data sharing off. There is no root mode.
+
+- **Privacy (step 7):** switches off personalised ads and Siri, and with
+  `--sudo` the diagnostics sent to Apple and to app developers. Nothing is
+  removed; the daemons live on the sealed system volume. iCloud, Apple
+  Intelligence, Spotlight suggestions and location-based system services have no
+  command, so the installer lists those settings at the end.
 
 - **Homebrew** comes from its official installer, pinned to a commit and
   checked against a checksum like every other download here. Apple silicon

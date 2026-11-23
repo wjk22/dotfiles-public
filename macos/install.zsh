@@ -171,7 +171,19 @@ typeset -A local_file
 local_file=(.zshrc '~/.zshrc.local' .alias '~/.alias.local')
 stamp=$(strftime %Y%m%d-%H%M%S $EPOCHSECONDS)
 
-keys=(packages ohmyzsh shell fonts links mail)
+# Step 7: Apple's data sharing switched off. The daemons stay (they live on the
+# sealed system volume); these are the switches. "domain|key"; system ones need sudo.
+privacy_user=('com.apple.AdLib|allowApplePersonalizedAdvertising' 'com.apple.assistant.support|Assistant Enabled')
+crash_plist='/Library/Application Support/CrashReporter/DiagnosticMessagesHistory'
+privacy_system=("$crash_plist|AutoSubmit" "$crash_plist|ThirdPartyDataSubmit")
+privacy_by_hand=(
+    'Apple Account: Sign Out removes iCloud, iCloud Drive, Photos, Find My and Keychain sync (asks about local copies)'
+    'Apple Intelligence & Siri: off'
+    'Spotlight: Help Apple Improve Search and the suggestions off'
+    'Privacy & Security > Location Services > System Services: Significant Locations and Product Improvement off'
+)
+
+keys=(packages ohmyzsh shell fonts links mail privacy)
 labels=(
     'Homebrew, packages, tools and Ghostty (Homebrew itself requires --sudo)'
     'oh-my-zsh, plugins and p10k (install or update)'
@@ -179,6 +191,7 @@ labels=(
     'MesloLGS NF fonts'
     'Link the dotfiles (backup first)'
     'NeoMutt + NeoSolarized theme + existing Neovim composer'
+    'Apple data sharing off: diagnostics, personalised ads, Siri (diagnostics require --sudo)'
 )
 details=(
     "${formulae[*]}; ${casks[*]}"
@@ -187,6 +200,7 @@ details=(
     'into ~/Library/Fonts'
     "~/${(j: ~/:)links}"
     'neomutt from Homebrew, private config with backups; accounts stay outside Git'
+    'defaults switches only, nothing removed; iCloud and the rest are listed at the end'
 )
 typeset -A answer
 for key in $keys; do
@@ -338,6 +352,19 @@ if [[ $answer[packages] == yes && -z $brew_bin ]]; then
         fi
         printf '\n  Continuing with per-user setup; step 1 needs Homebrew (see the end).\n'
     fi
+fi
+# The two diagnostics switches are system-wide; ask for sudo only when one needs changing.
+privacy_sudo=no; by_hand=()
+if [[ $answer[privacy] == yes ]]; then
+    for entry in $privacy_system; do
+        [[ $(defaults read "${entry%%|*}" "${entry#*|}" 2>/dev/null) == 0 ]] && continue
+        if [[ $allow_sudo == yes ]] && { [[ -n $sudo_keeper ]] || { printf '\n' && sudo -v; } }; then
+            privacy_sudo=yes
+        else
+            warnings+=('Diagnostics sharing unchanged: it is system-wide and needs ./install.sh --sudo.')
+        fi
+        break
+    done
 fi
 [[ -z $locale_warning ]] || warnings+=("$locale_warning")
 
@@ -621,6 +648,30 @@ if [[ $answer[mail] == yes ]]; then
     fi
 fi
 
+if [[ $answer[privacy] == yes ]]; then
+    step Privacy 'Apple data sharing off'
+    switched=()
+    for entry in $privacy_user; do
+        [[ $(defaults read "${entry%%|*}" "${entry#*|}" 2>/dev/null) == 0 ]] && continue
+        run defaults write "${entry%%|*}" "${entry#*|}" -bool false
+        switched+=("${entry#*|}")
+    done
+    if [[ $privacy_sudo == yes ]]; then
+        for entry in $privacy_system; do
+            [[ $(defaults read "${entry%%|*}" "${entry#*|}" 2>/dev/null) == 0 ]] && continue
+            run sudo -n defaults write "${entry%%|*}" "${entry#*|}" -bool false
+            switched+=("${entry#*|}")
+        done
+    fi
+    by_hand=($privacy_by_hand)
+    if (( $#switched )); then
+        changes+=("privacy: off ${(j:, :)switched}")
+        passed "switched off ${(j:, :)switched}"
+    else
+        passed 'already off'
+    fi
+fi
+
 # Remember this run for the next one; rewritten only when something differs.
 new_state=$(printf 'commit=%s\n' "$new_commit"; for key in $keys; do printf '%s=%s\n' "$key" "$answer[$key]"; done)
 if [[ $new_state != $(cat "$state_file" 2>/dev/null || true) ]]; then
@@ -646,6 +697,10 @@ fi
 if (( $#warnings )); then
     printf '  Warnings:\n'
     printf '    %s\n' $warnings
+fi
+if (( ${#by_hand} )); then
+    printf '  By hand in System Settings (no command for these):\n'
+    printf '    - %s\n' $by_hand
 fi
 [[ -z $backup_dir ]] || printf '  Backups: %s\n' "$backup_dir"
 printf '  Log:     %s\n' "$log"
