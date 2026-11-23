@@ -339,12 +339,18 @@ The seven selectable steps are:
    can't read is left alone with a warning. Windows PowerShell 5.1 itself is part
    of Windows and stays installed.
 7. **Remove Windows extras:** Solitaire, the Xbox app and overlays, consumer
-   Teams, Clipchamp, News, Weather, Bing Search, Get Help, Tips, Feedback Hub and
-   OneDrive by default (the `Remove` list in `packages.psd1`), for the current
-   user; with `--sudo` they are also no longer provisioned for new users. The Xbox
-   sign-in parts stay, because games and the Store depend on them. OneDrive is
-   kept, with a warning, while one of your folders syncs to it or an account is
-   signed in. Anything removed can come back from the Store.
+   Teams, Clipchamp, News, Weather, Bing Search, Get Help, Tips, Feedback Hub,
+   the Office hub, new Outlook, Mail & Calendar, Maps, Movies & TV, Media Player,
+   People, Power Automate, To Do, Family, Quick Assist, Dev Home, Cortana,
+   LinkedIn, Copilot, Widgets and OneDrive by default (the `Remove` list in
+   `packages.psd1`), for the current user; with `--sudo` they are also no longer
+   provisioned for new users. Phone Link, the Store, winget, Edge, Photos and the
+   Xbox sign-in parts stay. OneDrive is kept, with a warning, while one of your
+   folders syncs to it or an account is signed in. The step also turns off, for
+   your account, the suggested apps Windows installs by itself, the ads in Start
+   and Settings, and Bing results in Start search (with `--sudo` as a policy for
+   every user), so the list doesn't come back. Anything removed can come back
+   from the Store.
 
 The prompt uses **Oh My Posh with the Takuya theme**: path, Git status, time
 and command status. It is a similar two-line setup to Linux, with its own theme.

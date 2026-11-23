@@ -26,6 +26,7 @@ try {
     Assert ($defaults.Scoop -notcontains 'pwsh') 'Default PowerShell must not be installed twice'
     Assert ($defaults.Remove -contains 'Microsoft.MicrosoftSolitaireCollection' -and $defaults.Remove -contains 'OneDrive') 'Default Remove list was not loaded'
     Assert ($defaults.Remove -notcontains 'Microsoft.XboxIdentityProvider' -and $defaults.Remove -notcontains 'Microsoft.Xbox.TCUI') 'Xbox sign-in parts must stay; games and Store depend on them'
+    Assert ($defaults.Remove -notcontains 'Microsoft.YourPhone' -and $defaults.Remove -notcontains 'Microsoft.WindowsStore' -and $defaults.Remove -notcontains 'Microsoft.DesktopAppInstaller') 'Phone Link, the Store and winget must stay'
     Assert ($defaults.ChocolateySystem -notcontains 'openvpn' -and $defaults.ChocolateySystem -notcontains 'netlimiter') 'Removed packages reappeared'
     "@{ ChocolateySystem=@('custom-system'); ChocolateyApps=@('custom-app'); Scoop=@('custom-tool','custom-tool') }" | Set-Content -LiteralPath $local
     $custom = & $loader

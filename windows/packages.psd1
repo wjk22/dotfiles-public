@@ -48,6 +48,8 @@
     # also no longer provisioned for new users. AppX package names, plus OneDrive,
     # which is only uninstalled when no folder of yours syncs to it. Remove an
     # entry to keep that app; anything removed can come back from the Store.
+    # Kept on purpose: Phone Link, the Store, App Installer (winget), Edge, Photos,
+    # and the Xbox sign-in parts that games and the Store use.
     Remove = @(
         'Microsoft.MicrosoftSolitaireCollection'
         'Microsoft.GamingApp'
@@ -63,6 +65,22 @@
         'Microsoft.GetHelp'
         'Microsoft.Getstarted'
         'Microsoft.WindowsFeedbackHub'
+        'Microsoft.MicrosoftOfficeHub'
+        'Microsoft.OutlookForWindows'
+        'microsoft.windowscommunicationsapps'
+        'Microsoft.WindowsMaps'
+        'Microsoft.ZuneVideo'
+        'Microsoft.ZuneMusic'
+        'Microsoft.People'
+        'Microsoft.PowerAutomateDesktop'
+        'Microsoft.Todos'
+        'MicrosoftCorporationII.MicrosoftFamily'
+        'MicrosoftCorporationII.QuickAssist'
+        'Microsoft.Windows.DevHome'
+        'Microsoft.549981C3F5F10'
+        '7EE7776C.LinkedInforWindows'
+        'Microsoft.Copilot'
+        'MicrosoftWindows.Client.WebExperience'
         'OneDrive'
     )
 }

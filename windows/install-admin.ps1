@@ -95,6 +95,13 @@ if ($RemoveExtras) {
         if ($code -eq 0) { $deprovisioned++ } else { Add-LogLine "Could not stop provisioning $($package.DisplayName)." }
     }
     if ($deprovisioned -gt 0) { $done += "$deprovisioned Windows extras no longer provisioned for new users" }
+    # Start search without Bing web results, for every user (Windows 11 reads only the policy).
+    $policy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
+    if (-not (Test-Path $policy)) { New-Item -Path $policy -Force | Out-Null }
+    if ((Get-ItemProperty -Path $policy -Name DisableSearchBoxSuggestions -ErrorAction SilentlyContinue).DisableSearchBoxSuggestions -ne 1) {
+        New-ItemProperty -Path $policy -Name DisableSearchBoxSuggestions -Value 1 -PropertyType DWord -Force | Out-Null
+        $done += 'no Bing results in Start search'
+    }
 }
 
 $packages = $systemPackages

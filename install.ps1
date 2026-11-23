@@ -206,7 +206,7 @@ $questions = @(
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'step 6 makes them the Windows Terminal font' },
     @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
-    @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = (($removeApps -join ' ') + '; with --sudo also for new users; OneDrive only if nothing syncs to it') }
+    @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = "$($removeApps.Count) apps from the Remove list (Solitaire, Xbox, Teams, Copilot, Widgets, OneDrive if nothing syncs to it ...), no suggested apps or ads; with --sudo also for new users" }
 )
 # ------------------------------------------------------- existing config ---
 # Looked at before anything changes: what gets replaced, its .bak, and lines
@@ -1016,11 +1016,35 @@ if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
             }
         }
     }
-    if ($removed.Count -eq 0) {
+    # Windows quietly installs "suggested" apps again and shows ads in Start and
+    # Settings; without this, part of the list comes back after a feature update.
+    $quiet = @(
+        @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; Names = @(
+            'SilentInstalledAppsEnabled', 'PreInstalledAppsEnabled', 'PreInstalledAppsEverEnabled', 'OemPreInstalledAppsEnabled',
+            'SystemPaneSuggestionsEnabled', 'SoftLandingEnabled', 'SubscribedContent-338388Enabled', 'SubscribedContent-338389Enabled',
+            'SubscribedContent-353694Enabled', 'SubscribedContent-353696Enabled') },
+        @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'; Names = @('Start_IrisRecommendations') },
+        @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Search'; Names = @('BingSearchEnabled') }
+    )
+    $quieted = 0
+    foreach ($group in $quiet) {
+        if (-not (Test-Path -Path $group.Path)) { New-Item -Path $group.Path -Force | Out-Null }
+        foreach ($valueName in $group.Names) {
+            $current = Get-ItemProperty -Path $group.Path -Name $valueName -ErrorAction SilentlyContinue
+            if (-not $current -or $current.$valueName -ne 0) {
+                New-ItemProperty -Path $group.Path -Name $valueName -Value 0 -PropertyType DWord -Force | Out-Null
+                $quieted++
+            }
+        }
+    }
+    $extrasDone = @()
+    if ($removed.Count -gt 0) { $extrasDone += "removed $($removed -join ' ')" }
+    if ($quieted -gt 0) { $extrasDone += 'no suggested apps, ads or Bing results in Start' }
+    if ($extrasDone.Count -eq 0) {
         Complete-Step 'nothing left to remove'
     } else {
-        $changes.Add("extras removed: $($removed -join ' ')")
-        Complete-Step "removed $($removed -join ' ')"
+        $changes.Add("extras: $($extrasDone -join '; ')")
+        Complete-Step ($extrasDone -join '; ')
     }
 }
 
