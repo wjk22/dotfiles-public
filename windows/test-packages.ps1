@@ -26,13 +26,19 @@ try {
     Assert ($defaults.Scoop -notcontains 'pwsh') 'Default PowerShell must not be installed twice'
     Assert ($defaults.Remove -contains 'Microsoft.MicrosoftSolitaireCollection' -and $defaults.Remove -contains 'OneDrive') 'Default Remove list was not loaded'
     Assert ($defaults.Remove -notcontains 'Microsoft.XboxIdentityProvider' -and $defaults.Remove -notcontains 'Microsoft.Xbox.TCUI') 'Xbox sign-in parts must stay; games and Store depend on them'
-    Assert ($defaults.Remove -notcontains 'Microsoft.YourPhone' -and $defaults.Remove -notcontains 'Microsoft.WindowsStore' -and $defaults.Remove -notcontains 'Microsoft.DesktopAppInstaller') 'Phone Link, the Store and winget must stay'
+    $allRemoved = @($defaults.Remove) + @($defaults.RemoveOptional)
+    Assert ($allRemoved -notcontains 'Microsoft.YourPhone' -and $allRemoved -notcontains 'Microsoft.WindowsStore' -and $allRemoved -notcontains 'Microsoft.DesktopAppInstaller') 'Phone Link, the Store and winget must stay'
+    Assert ($defaults.RemoveOptional -contains 'Microsoft.Copilot' -and $defaults.Remove -notcontains 'Microsoft.Copilot') 'Copilot belongs to step 8, not step 7'
+    Assert ($defaults.DisableServices -contains 'DiagTrack' -and $defaults.DisableServices.Count -eq 5) 'Step 9 disables exactly the five agreed services'
+    foreach ($kept in @('WSearch', 'SysMain', 'Spooler', 'lfsvc', 'XblAuthManager')) {
+        Assert ($defaults.DisableServices -notcontains $kept) "$kept must stay enabled"
+    }
     Assert ($defaults.ChocolateySystem -notcontains 'openvpn' -and $defaults.ChocolateySystem -notcontains 'netlimiter') 'Removed packages reappeared'
     "@{ ChocolateySystem=@('custom-system'); ChocolateyApps=@('custom-app'); Scoop=@('custom-tool','custom-tool') }" | Set-Content -LiteralPath $local
     $custom = & $loader
     Assert ($custom.ChocolateySystem.Count -eq 1 -and $custom.ChocolateySystem[0] -eq 'custom-system') 'Local list did not replace defaults'
     Assert ($custom.Scoop.Count -eq 1 -and $custom.Scoop[0] -eq 'custom-tool') 'Duplicates were not removed'
-    Assert ($custom.Remove.Count -eq $defaults.Remove.Count) 'A local file without Remove must keep the default Remove list'
+    Assert ($custom.Remove.Count -eq $defaults.Remove.Count -and $custom.DisableServices.Count -eq $defaults.DisableServices.Count) 'A local file without the optional groups must keep their defaults'
     "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(); Remove=@() }" | Set-Content -LiteralPath $local
     Assert ((& $loader).Remove.Count -eq 0) 'An empty local Remove list must remove nothing'
     foreach ($bad in @(

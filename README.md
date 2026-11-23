@@ -318,7 +318,7 @@ See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
 
 ### Windows
 
-The seven selectable steps are:
+The nine selectable steps are:
 
 1. **Chocolatey system packages (requires `--sudo`):** PowerShell 7
    (`powershell-core`, for all users), Everything and Total Commander by default,
@@ -340,17 +340,26 @@ The seven selectable steps are:
    of Windows and stays installed.
 7. **Remove Windows extras:** Solitaire, the Xbox app and overlays, consumer
    Teams, Clipchamp, News, Weather, Bing Search, Get Help, Tips, Feedback Hub,
-   the Office hub, new Outlook, Mail & Calendar, Maps, Movies & TV, Media Player,
-   People, Power Automate, To Do, Family, Quick Assist, Dev Home, Cortana,
-   LinkedIn, Copilot, Widgets and OneDrive by default (the `Remove` list in
-   `packages.psd1`), for the current user; with `--sudo` they are also no longer
-   provisioned for new users. Phone Link, the Store, winget, Edge, Photos and the
-   Xbox sign-in parts stay. OneDrive is kept, with a warning, while one of your
-   folders syncs to it or an account is signed in. The step also turns off, for
-   your account, the suggested apps Windows installs by itself, the ads in Start
-   and Settings, and Bing results in Start search (with `--sudo` as a policy for
-   every user), so the list doesn't come back. Anything removed can come back
-   from the Store.
+   the Office hub, new Outlook, Mail & Calendar, Maps, Movies & TV, People, Power
+   Automate, To Do, Family, Dev Home, Cortana, LinkedIn and OneDrive by default
+   (the `Remove` list), for the current user; with `--sudo` they are also no
+   longer provisioned for new users. Phone Link, the Store, winget, Edge, Photos
+   and the Xbox sign-in parts stay. OneDrive is kept, with a warning, while one of
+   your folders syncs to it or an account is signed in.
+8. **Copilot, Widgets & co; no ads or Bing:** removes Copilot, Media Player,
+   Quick Assist and Widgets (the `RemoveOptional` list), and turns off, for your
+   account, the suggested apps Windows installs by itself, the ads in Start and
+   Settings, and Bing results in Start search (with `--sudo` also as a policy for
+   every user), so removed apps don't come back after a feature update.
+9. **Disable telemetry services (requires `--sudo`):** DiagTrack and
+   dmwappushservice (telemetry), RetailDemo, MapsBroker and Fax (the
+   `DisableServices` list). Each start type is recorded first;
+   `windows\install-admin.ps1 -RestoreServices` from an elevated shell puts them
+   back. Windows Search, SysMain, the print spooler, location and the Xbox and
+   Phone Link services stay.
+
+Anything removed in steps 7 and 8 can come back from the Store. The system-wide
+parts of steps 7 to 9 run inside step 1's single UAC prompt.
 
 The prompt uses **Oh My Posh with the Takuya theme**: path, Git status, time
 and command status. It is a similar two-line setup to Linux, with its own theme.
@@ -373,8 +382,9 @@ still stop their run; the installer does not claim that failed work succeeded.
 
 OpenVPN and NetLimiter are not included in the package lists.
 `windows\install-admin.ps1` can also run directly from an elevated shell;
-add `-Apps` to include the optional Chocolatey group, `-RemoveExtras` to stop
-provisioning the `Remove` list for new users.
+add `-Apps` to include the optional Chocolatey group, `-RemoveExtras` and
+`-RemoveOptional` to stop provisioning those lists for new users,
+`-DisableServices` for step 9, or `-RestoreServices` to undo it.
 
 ## Choose your Windows packages
 
@@ -388,10 +398,12 @@ one per line, in these groups:
 | `ChocolateyApps` | The optional apps step |
 | `Scoop` | The per-user Scoop step; package IDs from the main/extras buckets |
 | `Remove` | The Windows extras step; AppX package names, plus `OneDrive` |
+| `RemoveOptional` | Step 8; AppX package names |
+| `DisableServices` | Step 9; service names |
 
 The local file replaces the first three lists; it is not merged with the defaults.
-`Remove` is optional there: without it, the default list applies, and `@()`
-removes nothing.
+`Remove`, `RemoveOptional` and `DisableServices` are optional there: without
+them, the default lists apply, and `@()` means none.
 It is ignored by Git, so personal choices do not trip the installer's
 clean-checkout check. The main installer and elevated helper use the same file.
 Delete the local file to return to the shared defaults.

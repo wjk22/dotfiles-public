@@ -3,7 +3,8 @@
   admin rights. install.ps1 runs it once through UAC (it works with a
   separate admin account). It also runs on its own from an elevated PowerShell:
 
-    powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 [-Apps] [-RemoveExtras]
+    powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 [-Apps] [-RemoveExtras] [-RemoveOptional] [-DisableServices]
+    powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 -RestoreServices
 
   Installs Chocolatey if missing, then installs or upgrades the packages, and
   the PSWindowsUpdate module for all users. Safe to run again.
@@ -14,6 +15,12 @@ param(
     [switch]$Apps,
     # Stop provisioning the Windows extras from the Remove list for new users.
     [switch]$RemoveExtras,
+    # The same for RemoveOptional, plus no Bing results in Start search for everyone.
+    [switch]$RemoveOptional,
+    # Disable the DisableServices list, recording each start type first.
+    [switch]$DisableServices,
+    # Put the recorded start types back, then stop.
+    [switch]$RestoreServices,
     # Append all output to this log (install.ps1 passes its own); console otherwise.
     [string]$Log
 )
@@ -84,10 +91,33 @@ if (-not (Test-Path $choco)) {
     $done += 'Chocolatey'
 }
 
+# Start types before step 9 changed them, one service=StartType per line.
+$serviceRecord = Join-Path $env:ProgramData 'dotfiles\services-before.txt'
+$recorded = [ordered]@{}
+if (Test-Path -LiteralPath $serviceRecord) {
+    foreach ($line in Get-Content -LiteralPath $serviceRecord) {
+        if ($line -match '^([^=]+)=(Automatic|Manual|Disabled)$') { $recorded[$Matches[1]] = $Matches[2] }
+    }
+}
+if ($RestoreServices) {
+    foreach ($name in @($recorded.Keys)) {
+        if (-not (Get-Service -Name $name -ErrorAction SilentlyContinue)) { continue }
+        $code = Invoke-Logged { Set-Service -Name $name -StartupType $recorded[$name] -ErrorAction Stop }
+        if ($code -ne 0) { Stop-Admin "Could not restore $name." }
+        if ($recorded[$name] -eq 'Automatic') { Start-Service -Name $name -ErrorAction SilentlyContinue }
+    }
+    Remove-Item -LiteralPath $serviceRecord -ErrorAction SilentlyContinue
+    Add-LogLine "RESULT: restored $(@($recorded.Keys) -join ' ')"
+    exit 0
+}
+
 # Before the packages, so a failing package can't skip it. Users who already have
 # these apps keep them; install.ps1 removes them per user.
-if ($RemoveExtras) {
-    $names = @($packageConfig.Remove | Where-Object { $_ -ne 'OneDrive' })
+if ($RemoveExtras -or $RemoveOptional) {
+    $names = @()
+    if ($RemoveExtras) { $names += @($packageConfig.Remove) }
+    if ($RemoveOptional) { $names += @($packageConfig.RemoveOptional) }
+    $names = @($names | Where-Object { $_ -ne 'OneDrive' })
     $provisioned = @(Get-AppxProvisionedPackage -Online | Where-Object { $names -contains $_.DisplayName })
     $deprovisioned = 0
     foreach ($package in $provisioned) {
@@ -95,6 +125,8 @@ if ($RemoveExtras) {
         if ($code -eq 0) { $deprovisioned++ } else { Add-LogLine "Could not stop provisioning $($package.DisplayName)." }
     }
     if ($deprovisioned -gt 0) { $done += "$deprovisioned Windows extras no longer provisioned for new users" }
+}
+if ($RemoveOptional) {
     # Start search without Bing web results, for every user (Windows 11 reads only the policy).
     $policy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer'
     if (-not (Test-Path $policy)) { New-Item -Path $policy -Force | Out-Null }
@@ -102,6 +134,24 @@ if ($RemoveExtras) {
         New-ItemProperty -Path $policy -Name DisableSearchBoxSuggestions -Value 1 -PropertyType DWord -Force | Out-Null
         $done += 'no Bing results in Start search'
     }
+}
+
+if ($DisableServices) {
+    $disabled = @()
+    foreach ($name in @($packageConfig.DisableServices)) {
+        $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='$name'" -ErrorAction SilentlyContinue
+        if (-not $service -or $service.StartMode -eq 'Disabled') { continue }
+        # The first recorded start type wins, so a second run keeps the original.
+        if (-not $recorded.Contains($name)) { $recorded[$name] = if ($service.StartMode -eq 'Auto') { 'Automatic' } else { 'Manual' } }
+        New-Item -ItemType Directory -Path (Split-Path -Parent $serviceRecord) -Force | Out-Null
+        Set-Content -LiteralPath $serviceRecord -Value @($recorded.Keys | ForEach-Object { "$_=$($recorded[$_])" }) -Encoding UTF8
+        $code = Invoke-Logged {
+            Stop-Service -Name $name -Force -ErrorAction SilentlyContinue
+            Set-Service -Name $name -StartupType Disabled -ErrorAction Stop
+        }
+        if ($code -eq 0) { $disabled += $name } else { Add-LogLine "Could not disable $name." }
+    }
+    if ($disabled.Count -gt 0) { $done += "disabled $($disabled -join ' ')" }
 }
 
 $packages = $systemPackages

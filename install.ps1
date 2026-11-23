@@ -118,6 +118,8 @@ $systemPackages = @($packageConfig.ChocolateySystem)
 $appPackages = @($packageConfig.ChocolateyApps)
 $scoopApps = @($packageConfig.Scoop)
 $removeApps = @($packageConfig.Remove)
+$removeOptional = @($packageConfig.RemoveOptional)
+$disableServices = @($packageConfig.DisableServices)
 
 $haveChoco = Test-Path (Join-Path $env:ProgramData 'chocolatey\bin\choco.exe')
 $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
@@ -206,7 +208,9 @@ $questions = @(
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'step 6 makes them the Windows Terminal font' },
     @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
-    @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = "$($removeApps.Count) apps from the Remove list (Solitaire, Xbox, Teams, Copilot, Widgets, OneDrive if nothing syncs to it ...), no suggested apps or ads; with --sudo also for new users" }
+    @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = "$($removeApps.Count) apps (Solitaire, Xbox, Teams, Office hub, Outlook, Cortana ..., OneDrive if nothing syncs to it); with --sudo also for new users" },
+    @{ Key = 'privacy'; Label = 'Copilot, Widgets & co; no ads or Bing (per user)'; Detail = "removes $($removeOptional -join ' '); no suggested apps, ads in Start and Settings or Bing in Start search" },
+    @{ Key = 'services'; Label = 'Disable telemetry services (requires --sudo)'; Detail = "$($disableServices -join ' '); start types are recorded for -RestoreServices" }
 )
 # ------------------------------------------------------- existing config ---
 # Looked at before anything changes: what gets replaced, its .bak, and lines
@@ -570,11 +574,17 @@ $skipConfig = $false
 if ($answer['choco'] -eq 'yes' -and -not $Sudo) {
     $warnings.Add('Chocolatey system apps skipped: rerun with --sudo to allow the UAC prompt. Per-user setup continues.')
 }
+# The system-wide parts of steps 7-9 run inside the one elevated Chocolatey step.
+if ($answer['services'] -eq 'yes' -and $disableServices.Count -gt 0 -and -not ($Sudo -and $answer['choco'] -eq 'yes')) {
+    $warnings.Add('Services skipped: they need step 1 with --sudo (one UAC prompt).')
+}
 if ($Sudo -and $answer['choco'] -eq 'yes') {
     Start-Step 'Chocolatey' 'waiting for the UAC prompt'
     $adminArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$repo\windows\install-admin.ps1`"", '-Log', "`"$log`"")
     if ($answer['apps'] -eq 'yes') { $adminArgs += '-Apps' }
     if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) { $adminArgs += '-RemoveExtras' }
+    if ($answer['privacy'] -eq 'yes') { $adminArgs += '-RemoveOptional' }
+    if ($answer['services'] -eq 'yes' -and $disableServices.Count -gt 0) { $adminArgs += '-DisableServices' }
     $chocoError = ''
     try {
         $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') `
@@ -986,15 +996,21 @@ function Get-OneDriveInUse {
     return ''
 }
 
-if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
-    Start-Step 'Extras' "$($removeApps.Count) Windows extras"
-    $removed = @()
-    foreach ($name in @($removeApps | Where-Object { $_ -ne 'OneDrive' })) {
+# Removes AppX packages for the current user; returns the names it removed.
+function Remove-AppxList([string[]]$Names, [string]$Step) {
+    $gone = @()
+    foreach ($name in @($Names | Where-Object { $_ -ne 'OneDrive' })) {
         $found = @(Get-AppxPackage -Name $name -ErrorAction SilentlyContinue)
         if ($found.Count -eq 0) { continue }
-        if ((Invoke-LoggedCode { $found | Remove-AppxPackage -ErrorAction Stop }) -eq 0) { $removed += $name }
-        else { $warnings.Add("Extras: $name could not be removed; see the log.") }
+        if ((Invoke-LoggedCode { $found | Remove-AppxPackage -ErrorAction Stop }) -eq 0) { $gone += $name }
+        else { $warnings.Add("${Step}: $name could not be removed; see the log.") }
     }
+    return $gone
+}
+
+if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
+    Start-Step 'Extras' "$($removeApps.Count) Windows extras"
+    $removed = @(Remove-AppxList $removeApps 'Extras')
     if ($removeApps -contains 'OneDrive') {
         # Per user on Windows 11 (in AppData); Windows 10 ships the setup in System32.
         $setup = @(
@@ -1016,8 +1032,19 @@ if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
             }
         }
     }
+    if ($removed.Count -eq 0) {
+        Complete-Step 'nothing left to remove'
+    } else {
+        $changes.Add("extras: removed $($removed -join ' ')")
+        Complete-Step "removed $($removed -join ' ')"
+    }
+}
+
+if ($answer['privacy'] -eq 'yes') {
+    Start-Step 'Privacy' 'no ads, suggested apps or Bing in Start'
+    $removed = @(Remove-AppxList $removeOptional 'Privacy')
     # Windows quietly installs "suggested" apps again and shows ads in Start and
-    # Settings; without this, part of the list comes back after a feature update.
+    # Settings; without this, removed apps come back after a feature update.
     $quiet = @(
         @{ Path = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager'; Names = @(
             'SilentInstalledAppsEnabled', 'PreInstalledAppsEnabled', 'PreInstalledAppsEverEnabled', 'OemPreInstalledAppsEnabled',
@@ -1037,14 +1064,14 @@ if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
             }
         }
     }
-    $extrasDone = @()
-    if ($removed.Count -gt 0) { $extrasDone += "removed $($removed -join ' ')" }
-    if ($quieted -gt 0) { $extrasDone += 'no suggested apps, ads or Bing results in Start' }
-    if ($extrasDone.Count -eq 0) {
-        Complete-Step 'nothing left to remove'
+    $privacyDone = @()
+    if ($removed.Count -gt 0) { $privacyDone += "removed $($removed -join ' ')" }
+    if ($quieted -gt 0) { $privacyDone += 'no suggested apps, ads or Bing results in Start' }
+    if ($privacyDone.Count -eq 0) {
+        Complete-Step 'all in place'
     } else {
-        $changes.Add("extras: $($extrasDone -join '; ')")
-        Complete-Step ($extrasDone -join '; ')
+        $changes.Add("privacy: $($privacyDone -join '; ')")
+        Complete-Step ($privacyDone -join '; ')
     }
 }
 
