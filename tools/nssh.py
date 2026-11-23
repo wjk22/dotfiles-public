@@ -154,9 +154,34 @@ def duration(seconds):
     return f'{seconds // 3600}h{seconds % 3600 // 60:02d}m'
 
 
+def totals():
+    """Time spent per command line, from the log; failed connections don't count."""
+    spent = {}
+    try:
+        lines = LOG.read_text(encoding='utf-8').splitlines()
+    except OSError:
+        return spent
+    for line in lines:
+        parts = line.split('\t')
+        if len(parts) == 5 and parts[0].isdigit() and parts[1].isdigit() and parts[4] != '255':
+            spent[parts[3]] = spent.get(parts[3], 0) + int(parts[1]) - int(parts[0])
+    return spent
+
+
+def columns(entries):
+    """Rows and their header: command, name, last connection, total time."""
+    spent = totals()
+    cut = lambda text, width: text if len(text) <= width else text[:width - 1] + '…'
+    aw = min(40, max([7] + [len(e.args) for e in entries]))
+    nw = min(24, max([4] + [len(e.name) for e in entries]))
+    header = f'{"#":>3}  {"command":<{aw}}  {"name":<{nw}}  {"last":<10}  {"total":>7}'
+    rows = [f'{cut(e.args, aw):<{aw}}  {cut(e.name, nw):<{nw}}  {ago(e.when):<10}  '
+            f'{duration(spent[e.args]) if e.args in spent else "-":>7}' for e in entries]
+    return header, rows
+
+
 def rows(entries):
-    width = max([4] + [len(e.name) for e in entries])
-    return [f'{e.name:<{width}}  {ago(e.when):<10}  {e.args}' for e in entries]
+    return columns(entries)[1]
 
 
 def find(entries, key):
@@ -427,9 +452,8 @@ class Tui:
             self.top = self.cursor
         elif self.cursor >= self.top + body:
             self.top = self.cursor - body + 1
-        title = 'nssh' + (f'  /{self.query}' if self.query else '')
-        self.line(0, 0, title, self.accent | self.c.A_BOLD)
-        texts = rows(self.entries)
+        header, texts = columns(self.entries)
+        self.line(0, 0, header + (f'    /{self.query}' if self.query else ''), self.accent | self.c.A_BOLD)
         if not shown:
             self.line(2, 2, 'nothing remembered yet: nssh user@host connects and remembers it'
                       if not self.entries else 'no match')
@@ -581,7 +605,9 @@ def main(argv):
         chosen = tui(entries, lazy=True)
         return connect(shlex.split(chosen.args), chosen.name) if chosen else 0
     if argv == ['list']:
-        for i, text in enumerate(rows(entries), 1):
+        header, texts = columns(entries)
+        print(header)
+        for i, text in enumerate(texts, 1):
             print(f'{i:3}  {text}')
         return 0
     if argv == ['log']:
