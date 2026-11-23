@@ -73,6 +73,7 @@ function nssh {
     if (Get-Command py -ErrorAction SilentlyContinue) { & py -3 $script @args }
     else { & python $script @args }
 }
+function nssh-lm { nssh lm }  # lazy mode: the list full screen (needs windows-curses)
 
 # Cheat sheet for this setup; install.ps1 sets DOTFILES to the repo
 function help-dots {

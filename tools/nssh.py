@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """nssh: ssh that remembers where you connect.
 
-  nssh                      the list: Enter connects, r rename, d delete,
-                            e edit the list, l log, / search, q or Esc quit
+  nssh                      the list, in the next lines of the terminal: Enter
+                            connects, r rename, d delete, e edit the list, l log,
+                            / search, q or Esc quit
+  nssh lm                   lazy mode: the same list full screen (curses)
   nssh [ssh options] host   connect and remember the arguments
   nssh 3 | nssh name        connect to an entry of the list
   nssh list                 print the list, numbered
@@ -30,7 +32,8 @@ DIR = HOME / '.ssh' / 'nssh'
 HOSTS = DIR / 'hosts'
 LOG = DIR / 'log'
 SSH_CONFIG = HOME / '.ssh' / 'config'
-RESERVED = {'list', 'log', 'r', 'd'}
+RESERVED = {'list', 'log', 'lm', 'r', 'd'}
+INLINE_ROWS = 10
 HELP_LINE = 'Enter connect  r rename  d delete  e edit  l log  / search  q quit'
 
 
@@ -168,7 +171,7 @@ def find(entries, key):
 
 def name_problem(entries, index, name):
     if not name or re.search(r'\s', name) or name.isdigit() or name in RESERVED:
-        return 'a name is one word, not a number or list/log/r/d'
+        return 'a name is one word, not a number or list/log/lm/r/d'
     if any(e.name == name and i != index for i, e in enumerate(entries)):
         return f'{name} is taken'
     return ''
@@ -216,16 +219,177 @@ def connect(args, name=''):
 
 
 # ----------------------------------------------------------------------- tui ---
-def tui(entries):
-    """Returns the entry to connect to, or None."""
+def tui(entries, lazy=False):
+    """Returns the entry to connect to, or None. Lazy mode is full screen."""
+    if not lazy:
+        with Inline(INLINE_ROWS + 3) as screen:
+            return Tui(screen, screen, entries).run()
     os.environ.setdefault('ESCDELAY', '25')
     try:
         import curses
     except ImportError:
         hint = 'py -m pip install windows-curses' if os.name == 'nt' else 'install python3 with curses'
-        print(f'nssh: the list needs curses ({hint}); nssh list and nssh 3 work without it.', file=sys.stderr)
+        print(f'nssh: lazy mode needs curses ({hint}); plain nssh works without it.', file=sys.stderr)
         return None
     return curses.wrapper(lambda screen: Tui(screen, curses, entries).run())
+
+
+class Inline:
+    """The few curses calls Tui uses, drawn in the next lines below the prompt
+    instead of a full screen. Both the screen and its "curses" module."""
+    KEY_UP, KEY_DOWN, KEY_PPAGE, KEY_NPAGE, KEY_HOME, KEY_END = range(1001, 1007)
+    KEY_ENTER, KEY_BACKSPACE, KEY_RESIZE = 1007, 1008, 1009
+    A_BOLD, A_DIM, A_REVERSE = 1, 2, 4
+    COLOR_CYAN, COLOR_GREEN = 36, 32
+    error = OSError
+    SGR = ((1, '1'), (2, '2'), (4, '7'), (8, '36'), (16, '32'))
+    POSIX_KEYS = {'[A': KEY_UP, 'OA': KEY_UP, '[B': KEY_DOWN, 'OB': KEY_DOWN, '[5~': KEY_PPAGE,
+                  '[6~': KEY_NPAGE, '[H': KEY_HOME, 'OH': KEY_HOME, '[1~': KEY_HOME, '[7~': KEY_HOME,
+                  '[F': KEY_END, 'OF': KEY_END, '[4~': KEY_END, '[8~': KEY_END}
+    WINDOWS_KEYS = {'H': KEY_UP, 'P': KEY_DOWN, 'I': KEY_PPAGE, 'Q': KEY_NPAGE, 'G': KEY_HOME, 'O': KEY_END}
+
+    def __init__(self, rows):
+        self.rows, self.active, self.at, self.cursor_on = rows, False, 0, True
+        self.erase()
+        self.cy = self.cx = 0
+
+    def __enter__(self):
+        self.start()
+        return self
+
+    def __exit__(self, *_):
+        self.endwin()
+
+    # terminal
+    def start(self):
+        self.h = max(3, min(self.rows, shutil.get_terminal_size().lines - 1))
+        if os.name == 'nt':
+            import ctypes  # VT sequences: Windows Terminal has them, conhost needs the flag
+            kernel = ctypes.windll.kernel32
+            handle, mode = kernel.GetStdHandle(-11), ctypes.c_uint()
+            if kernel.GetConsoleMode(handle, ctypes.byref(mode)):
+                kernel.SetConsoleMode(handle, mode.value | 4)
+        else:
+            import termios
+            import tty
+            self.fd = sys.stdin.fileno()
+            self.saved = termios.tcgetattr(self.fd)
+            tty.setcbreak(self.fd)  # keys one by one, no echo; Ctrl-C still interrupts
+        # Room below the prompt: scrolls up when the prompt sits at the bottom.
+        self.out('\n' * (self.h - 1) + f'\x1b[{self.h - 1}A\r' if self.h > 1 else '\r')
+        self.at, self.active = 0, True
+
+    def endwin(self):
+        if not self.active:
+            return
+        self.out((f'\x1b[{self.at}A' if self.at else '') + '\r\x1b[J\x1b[?25h')
+        if os.name != 'nt':
+            import termios
+            termios.tcsetattr(self.fd, termios.TCSADRAIN, self.saved)
+        self.active = False
+
+    def out(self, text):
+        sys.stdout.write(text)
+        sys.stdout.flush()
+
+    # drawing
+    def getmaxyx(self):
+        return self.h if self.active else self.rows, shutil.get_terminal_size().columns
+
+    def erase(self):
+        self.buffer = [[] for _ in range(getattr(self, 'h', self.rows))]
+
+    def addnstr(self, y, x, text, n, attr=0):
+        if 0 <= y < len(self.buffer):
+            row = [(t, a) for t, a in self.buffer[y]]
+            length = sum(len(t) for t, _ in row)
+            if x > length:
+                row.append((' ' * (x - length), 0))
+            self.buffer[y] = self.cut(row, x) + [(text[:max(0, n)], attr)]
+
+    @staticmethod
+    def cut(row, x):
+        kept, length = [], 0
+        for text, attr in row:
+            if length >= x:
+                break
+            kept.append((text[:x - length], attr))
+            length += len(kept[-1][0])
+        return kept
+
+    def move(self, y, x):
+        self.cy, self.cx = y, x
+
+    def clrtoeol(self):
+        if 0 <= self.cy < len(self.buffer):
+            self.buffer[self.cy] = self.cut(self.buffer[self.cy], self.cx)
+
+    def refresh(self):
+        if not self.active:
+            self.start()
+        parts = [f'\x1b[{self.at}A' if self.at else '', '\r']
+        for y, row in enumerate(self.buffer[:self.h]):
+            parts.append('\x1b[2K')
+            for text, attr in row:
+                codes = ';'.join(code for bit, code in self.SGR if attr & bit)
+                parts.append(f'\x1b[{codes}m{text}\x1b[0m' if codes else text)
+            if y < self.h - 1:
+                parts.append('\r\n')
+        cy = min(max(self.cy, 0), self.h - 1)
+        if self.h - 1 > cy:
+            parts.append(f'\x1b[{self.h - 1 - cy}A')
+        parts.append('\r' + (f'\x1b[{self.cx}C' if self.cx else ''))
+        parts.append('\x1b[?25h' if self.cursor_on else '\x1b[?25l')
+        self.at = cy
+        self.out(''.join(parts))
+
+    # curses module look-alikes
+    def curs_set(self, visible):
+        self.cursor_on = bool(visible)
+
+    def use_default_colors(self):
+        pass
+
+    def init_pair(self, *_):
+        pass
+
+    def color_pair(self, number):
+        return {1: 8, 2: 16}.get(number, 0)
+
+    # keys
+    def get_wch(self):
+        self.refresh()
+        if os.name == 'nt':
+            import msvcrt
+            key = msvcrt.getwch()
+            if key == '\x03':
+                raise KeyboardInterrupt
+            if key in ('\x00', '\xe0'):
+                return self.WINDOWS_KEYS.get(msvcrt.getwch(), self.KEY_RESIZE)
+            return self.KEY_BACKSPACE if key == '\b' else key
+        key = self.char()
+        if key == '\x1b':
+            # An arrow arrives as ESC [ A in one go; a lone Esc has nothing after it.
+            sequence = ''
+            while len(sequence) < 6 and self.waiting(0.01 if sequence else 0.03):
+                sequence += self.char()
+                if len(sequence) > 1 and (sequence[-1].isalpha() or sequence[-1] == '~'):
+                    break
+            if not sequence:
+                return key
+            return self.POSIX_KEYS.get(sequence, self.KEY_RESIZE)
+        return self.KEY_BACKSPACE if key in ('\x7f', '\b') else key
+
+    def waiting(self, seconds):
+        import select
+        return bool(select.select([self.fd], [], [], seconds)[0])
+
+    def char(self):
+        first = os.read(self.fd, 1)
+        if not first:
+            raise KeyboardInterrupt  # input closed
+        more = 3 if first[0] >= 0xF0 else 2 if first[0] >= 0xE0 else 1 if first[0] >= 0xC0 else 0
+        return (first + (os.read(self.fd, more) if more else b'')).decode('utf-8', 'replace')
 
 
 class Tui:
@@ -412,6 +576,9 @@ def main(argv):
     entries = load()
     if not argv:
         chosen = tui(entries)
+        return connect(shlex.split(chosen.args), chosen.name) if chosen else 0
+    if argv == ['lm']:
+        chosen = tui(entries, lazy=True)
         return connect(shlex.split(chosen.args), chosen.name) if chosen else 0
     if argv == ['list']:
         for i, text in enumerate(rows(entries), 1):

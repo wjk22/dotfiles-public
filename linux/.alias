@@ -86,6 +86,7 @@ fi
 
 # nssh: ssh that remembers where you connect (tools/nssh.py; nssh -h).
 nssh() { python3 "$DOTFILES/tools/nssh.py" "$@" }
+nssh-lm() { nssh lm }  # lazy mode: the list full screen
 
 # Cheat sheet for this setup
 help-dots() {
