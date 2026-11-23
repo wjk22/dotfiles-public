@@ -220,7 +220,8 @@ $questions = @(
     @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
     @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = "$($removeApps.Count) apps (Solitaire, Xbox, Teams, Office hub, Outlook, Cortana ..., OneDrive if nothing syncs to it); with --sudo also for new users" },
     @{ Key = 'privacy'; Label = 'Copilot, Widgets & co; no ads or Bing (per user)'; Detail = "removes $($removeOptional -join ' '); no suggested apps, ads in Start and Settings or Bing in Start search" },
-    @{ Key = 'services'; Label = 'Disable telemetry services (requires --sudo)'; Detail = "$($disableServices -join ' '); start types are recorded for -RestoreServices" }
+    @{ Key = 'services'; Label = 'Disable telemetry services (requires --sudo)'; Detail = "$($disableServices -join ' '); start types are recorded for -RestoreServices" },
+    @{ Key = 'visual'; Label = 'Visual effects: fewer animations (per user)'; Detail = 'no window, menu, tooltip or taskbar animations; Peek, shadows, thumbnails, smooth fonts and scrolling stay' }
 )
 # ------------------------------------------------------- existing config ---
 # Looked at before anything changes: what gets replaced, its .bak, and lines
@@ -440,7 +441,7 @@ while ($true) {
     $reply = Read-Answer '  Number to change, a to apply, q to quit'
     if ($reply -match '^a$' -and -not $problem) { break }
     if ($reply -match '^q$') { Write-Host ''; Write-Host '  Nothing was changed.'; exit 0 }
-    if ($reply -match '^[1-9]$' -and [int]$reply -le $questions.Count) {
+    if ($reply -match '^[1-9][0-9]?$' -and [int]$reply -le $questions.Count) {
         $key = $questions[[int]$reply - 1].Key
         if ($key -eq 'apps' -and $answer['choco'] -eq 'no') {
             Write-Host '  Optional apps are skipped because Chocolatey is disabled.'
@@ -1082,6 +1083,63 @@ if ($answer['privacy'] -eq 'yes') {
     } else {
         $changes.Add("privacy: $($privacyDone -join '; ')")
         Complete-Step ($privacyDone -join '; ')
+    }
+}
+
+if ($answer['visual'] -eq 'yes') {
+    Start-Step 'Visual' 'fewer animations; shadows, Peek and smooth fonts stay'
+    # Performance Options > Visual Effects as "Custom", value by value as that
+    # dialog writes them. Off: animations inside windows, when minimizing and
+    # maximizing, in the taskbar; fading menus, tooltips and menu items; saved
+    # taskbar thumbnails. Everything else on that list stays on.
+    $explorer = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer'
+    $visualValues = @(
+        @{ Path = "$explorer\VisualEffects"; Name = 'VisualFXSetting'; Value = 3; Type = 'DWord' },
+        @{ Path = 'HKCU:\Control Panel\Desktop\WindowMetrics'; Name = 'MinAnimate'; Value = '0'; Type = 'String' },
+        @{ Path = "$explorer\Advanced"; Name = 'TaskbarAnimations'; Value = 0; Type = 'DWord' },
+        @{ Path = "$explorer\Advanced"; Name = 'IconsOnly'; Value = 0; Type = 'DWord' },
+        @{ Path = "$explorer\Advanced"; Name = 'ListviewAlphaSelect'; Value = 1; Type = 'DWord' },
+        @{ Path = "$explorer\Advanced"; Name = 'ListviewShadow'; Value = 1; Type = 'DWord' },
+        @{ Path = 'HKCU:\Software\Microsoft\Windows\DWM'; Name = 'EnableAeroPeek'; Value = 1; Type = 'DWord' },
+        @{ Path = 'HKCU:\Software\Microsoft\Windows\DWM'; Name = 'AlwaysHibernateThumbnails'; Value = 0; Type = 'DWord' },
+        @{ Path = 'HKCU:\Control Panel\Desktop'; Name = 'DragFullWindows'; Value = '1'; Type = 'String' },
+        @{ Path = 'HKCU:\Control Panel\Desktop'; Name = 'FontSmoothing'; Value = '2'; Type = 'String' }
+    )
+    $visualChanged = 0
+    foreach ($v in $visualValues) {
+        if (-not (Test-Path -Path $v.Path)) { New-Item -Path $v.Path -Force | Out-Null }
+        $current = Get-ItemProperty -Path $v.Path -Name $v.Name -ErrorAction SilentlyContinue
+        if (-not $current -or "$($current.($v.Name))" -ne "$($v.Value)") {
+            New-ItemProperty -Path $v.Path -Name $v.Name -Value $v.Value -PropertyType $v.Type -Force | Out-Null
+            $visualChanged++
+        }
+    }
+    # The rest are bits of UserPreferencesMask; only these bits change, the
+    # others (keyboard cues, hot tracking ...) stay as they are.
+    # Byte, bits to set, bits to clear:
+    #   0: combo boxes slide open 0x04, smooth-scroll list boxes 0x08; menus fade or slide 0x02
+    #   1: shadow under the mouse pointer 0x20; menu items fade out 0x04, tooltips fade or slide 0x08
+    #   2: shadows under windows 0x04
+    #   3: UI effects at all 0x80 (the shadows and list-box effects need it)
+    #   4: animate controls and elements inside windows 0x02
+    $maskBits = @(@(0x0C, 0x02), @(0x20, 0x0C), @(0x04, 0x00), @(0x80, 0x00), @(0x00, 0x02))
+    $desktop = 'HKCU:\Control Panel\Desktop'
+    $oldMask = (Get-ItemProperty -Path $desktop -Name UserPreferencesMask -ErrorAction SilentlyContinue).UserPreferencesMask
+    # Missing or short: start from Windows' own default ("Let Windows choose").
+    if (-not $oldMask -or $oldMask.Length -lt 8) { $oldMask = [byte[]](0x9E, 0x3E, 0x07, 0x80, 0x12, 0x00, 0x00, 0x00) }
+    $newMask = [byte[]]$oldMask.Clone()
+    for ($i = 0; $i -lt $maskBits.Count; $i++) {
+        $newMask[$i] = [byte](($newMask[$i] -bor $maskBits[$i][0]) -band (-bnot $maskBits[$i][1] -band 0xFF))
+    }
+    if (($newMask -join ',') -ne ($oldMask -join ',')) {
+        New-ItemProperty -Path $desktop -Name UserPreferencesMask -Value $newMask -PropertyType Binary -Force | Out-Null
+        $visualChanged++
+    }
+    if ($visualChanged -eq 0) {
+        Complete-Step 'all in place'
+    } else {
+        $changes.Add('visual effects: fewer animations; sign out and in again to see all of it')
+        Complete-Step "$visualChanged settings changed; sign out and in again to see all of it"
     }
 }
 

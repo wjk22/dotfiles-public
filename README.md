@@ -325,7 +325,7 @@ See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
 
 ### Windows
 
-The nine selectable steps are:
+The ten selectable steps are:
 
 1. **Chocolatey system packages (requires `--sudo`):** PowerShell 7
    (`powershell-core`, for all users), Everything and Total Commander by default,
@@ -364,6 +364,15 @@ The nine selectable steps are:
    `windows\install-admin.ps1 -RestoreServices` from an elevated shell puts them
    back. Windows Search, SysMain, the print spooler, location and the Xbox and
    Phone Link services stay.
+10. **Visual effects: fewer animations:** Performance Options > Visual Effects
+   set to *Custom* for your account. Off: animating controls inside windows,
+   windows when minimizing and maximizing, the taskbar, fading or sliding menus
+   and tooltips, fading menu items after clicking, and saving taskbar thumbnail
+   previews. On: Peek, shadows under the pointer, windows and desktop icon
+   labels, thumbnails instead of icons, the translucent selection rectangle,
+   window contents while dragging, sliding combo boxes, smooth-scrolling list
+   boxes and smooth screen fonts. Other bits of `UserPreferencesMask` stay as
+   they are. Sign out and in again to see all of it.
 
 Anything removed in steps 7 and 8 can come back from the Store. The system-wide
 parts of steps 7 to 9 run inside step 1's single UAC prompt.
