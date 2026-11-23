@@ -162,11 +162,10 @@ link_source=(
     .dir_colors linux/.dir_colors
     .config/tmux/tmux.conf linux/.config/tmux/tmux.conf
     .config/ghostty/config.ghostty macos/.config/ghostty/config.ghostty
-    .local/share/nvim/site/syntax/pow.vim linux/.local/share/nvim/site/syntax/pow.vim
-    .local/share/nvim/site/ftdetect/pow.vim linux/.local/share/nvim/site/ftdetect/pow.vim
+    .config/nvim nvim
 )
-links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf .config/ghostty/config.ghostty
-       .local/share/nvim/site/syntax/pow.vim .local/share/nvim/site/ftdetect/pow.vim)
+# .config/nvim is a folder: the shared Neovim config for Linux, macOS and Windows.
+links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf .config/ghostty/config.ghostty .config/nvim)
 # Lines only in the user's copy of these are reported: they may be machine-local.
 typeset -A local_file
 local_file=(.zshrc '~/.zshrc.local' .alias '~/.alias.local')
@@ -246,6 +245,9 @@ inspect_configs() {
             target=$(readlink -- "$dest")
             [[ $target != $source_file ]] || continue
             kind="link to $target"
+        elif [[ -d $dest && -d $source_file ]]; then
+            replace_plan+=("~/$rel (folder) -> moved to ~/.dotfiles-backup/$stamp/$rel")
+            continue
         elif [[ -d $dest ]]; then
             config_problem="~/$rel is a directory; move it away first."
             return 0
@@ -438,6 +440,11 @@ if [[ $answer[packages] == yes && $skip_packages == no ]]; then
         run brew install $missing
         done_packages+=($missing)
     fi
+    # The shared nvim config wants the current release, so Neovim is kept up to date.
+    if [[ -n $(brew outdated --formula --quiet neovim 2>> "$log") ]]; then
+        run brew upgrade neovim
+        done_packages+=('neovim (upgraded)')
+    fi
     rehash  # zsh caches command lookups; see what brew just installed
     for cask in $casks; do
         # A copy installed by hand stays; brew would refuse to overwrite it anyway.
@@ -567,9 +574,13 @@ if [[ $answer[links] == yes ]]; then
     for rel in $links; do
         source_file=$repo/$link_source[$rel]
         dest=$HOME/$rel
-        [[ -f $source_file ]] || fail "Missing in the repo: $link_source[$rel]"
+        [[ -e $source_file ]] || fail "Missing in the repo: $link_source[$rel]"
         [[ $(readlink -- "$dest" 2>/dev/null || true) != $source_file ]] || continue
-        if [[ -e $dest || -L $dest ]]; then
+        if [[ -d $dest && ! -L $dest && -d $source_file ]]; then
+            # A config folder (~/.config/nvim) moves into the backup as a whole.
+            backup "$dest"
+            replaced+=("~/$rel -> ~/.dotfiles-backup/$stamp/$rel")
+        elif [[ -e $dest || -L $dest ]]; then
             [[ ! -d $dest || -L $dest ]] || fail "~/$rel is a directory; nothing was replaced."
             bak=$dest.$stamp.bak
             # Never overwrite a backup; cp -P copies a symlink itself, not its target.

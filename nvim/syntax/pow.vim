@@ -1,8 +1,6 @@
 " Vim syntax file
 " Language:    powwow / powxel definition files (*.pow)
-" Install:     the dotfiles link this to ~/.local/share/nvim/site/syntax/pow.vim,
-"              which Neovim reads without touching ~/.config/nvim; ftdetect/pow.vim:
-"              au BufRead,BufNewFile *.pow setfiletype pow
+" The filetype comes from lua/config/options.lua (vim.filetype.add).
 " Colours come from links to the standard groups, so any colour scheme works.
 
 if exists('b:current_syntax')

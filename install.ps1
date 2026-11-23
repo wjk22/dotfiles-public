@@ -210,6 +210,9 @@ function Resolve-Pwsh {
 $pwsh = Resolve-Pwsh
 $configLink = Join-Path $env:USERPROFILE '.config\powershell'
 $configSource = Join-Path $repo 'windows\.config\powershell'
+# The shared Neovim config (Linux and macOS link ~/.config/nvim to the same folder).
+$nvimLink = Join-Path $env:LOCALAPPDATA 'nvim'
+$nvimSource = Join-Path $repo 'nvim'
 
 $questions = @(
     @{ Key = 'choco'; Label = 'Chocolatey system apps (requires --sudo)'; Detail = "$systemPackages, PSWindowsUpdate module; no skips all Chocolatey installs" },
@@ -217,7 +220,7 @@ $questions = @(
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'step 6 makes them the Windows Terminal font' },
-    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
+    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junctions ~\.config\powershell and %LOCALAPPDATA%\nvim, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
     @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = "$($removeApps.Count) apps (Solitaire, Xbox, Teams, Office hub, Outlook, Cortana ..., OneDrive if nothing syncs to it); with --sudo also for new users" },
     @{ Key = 'privacy'; Label = 'Copilot, Widgets & co; no ads or Bing (per user)'; Detail = "removes $($removeOptional -join ' '); no suggested apps, ads in Start and Settings or Bing in Start search" },
     @{ Key = 'services'; Label = 'Disable telemetry services (requires --sudo)'; Detail = "$($disableServices -join ' '); start types are recorded for -RestoreServices" },
@@ -274,7 +277,7 @@ function Get-ParentProblem([string]$Path) {
     return ''
 }
 function Get-ConfigProblem {
-    foreach ($path in @($configLink, $profilePath)) {
+    foreach ($path in @($configLink, $profilePath, $nvimLink)) {
         if (-not $path) { continue }
         $problem = Get-ParentProblem $path
         if ($problem) { return $problem }
@@ -282,6 +285,10 @@ function Get-ConfigProblem {
     $item = Get-Item -LiteralPath $configLink -Force -ErrorAction SilentlyContinue
     if ($item -and -not $item.LinkType -and -not $item.PSIsContainer) {
         return '~\.config\powershell is a file; move it away first.'
+    }
+    $item = Get-Item -LiteralPath $nvimLink -Force -ErrorAction SilentlyContinue
+    if ($item -and -not $item.LinkType -and -not $item.PSIsContainer) {
+        return "$nvimLink is a file; move it away first."
     }
     if ($profilePath) {
         $item = Get-Item -LiteralPath $profilePath -Force -ErrorAction SilentlyContinue
@@ -299,6 +306,20 @@ function Test-ConfigCopy {
         $copy = Get-Item -LiteralPath $copied -Force -ErrorAction SilentlyContinue
         if (-not $copy -or $copy.LinkType -or $copy.PSIsContainer) { return $false }
         if ((Get-FileHash -LiteralPath $copied).Hash -ne (Get-FileHash -LiteralPath $file.FullName).Hash) { return $false }
+    }
+    return $true
+}
+# A copy (no junction possible) counts as current when it holds exactly the repo's files.
+function Test-TreeCopy([string]$Copy, [string]$Source) {
+    $item = Get-Item -LiteralPath $Copy -Force -ErrorAction SilentlyContinue
+    if (-not $item -or $item.LinkType -or -not $item.PSIsContainer) { return $false }
+    $copied = @(Get-ChildItem -LiteralPath $Copy -Recurse -File -Force)
+    $wanted = @(Get-ChildItem -LiteralPath $Source -Recurse -File -Force)
+    if ($copied.Count -ne $wanted.Count) { return $false }
+    foreach ($file in $wanted) {
+        $other = Join-Path $Copy $file.FullName.Substring($Source.Length).TrimStart('\')
+        if (-not (Test-Path -LiteralPath $other -PathType Leaf)) { return $false }
+        if ((Get-FileHash -LiteralPath $other).Hash -ne (Get-FileHash -LiteralPath $file.FullName).Hash) { return $false }
     }
     return $true
 }
@@ -324,6 +345,19 @@ function Get-ConfigPlan {
             }
         } else {
             $script:replacePlan += "~\.config\powershell is a file; move it away first."
+        }
+    }
+    $item = Get-Item -LiteralPath $nvimLink -Force -ErrorAction SilentlyContinue
+    if ($item) {
+        $target = if ($item.LinkType) { @($item.Target)[0] } else { $null }
+        if ($item.LinkType -eq 'Junction' -and $target -and $target.TrimEnd('\') -eq $nvimSource.TrimEnd('\')) {
+            # already linked to this repo
+        } elseif ($item.LinkType) {
+            $script:replacePlan += "$nvimLink ($($item.LinkType) to $target) -> renamed to $nvimLink.$stamp.bak, target untouched"
+        } elseif ($onNetworkPath -and (Test-TreeCopy $nvimLink $nvimSource)) {
+            # The apply step keeps this identical copy too.
+        } else {
+            $script:replacePlan += "$nvimLink (folder) -> backup $nvimLink.$stamp.bak"
         }
     }
     # The old layout kept the aliases outside the folder; the new profile no longer loads them.
@@ -864,7 +898,7 @@ $changed -join ', '
 '@
 
 if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
-    Start-Step 'Config' 'junction, $PROFILE, DOTFILES, Windows Terminal'
+    Start-Step 'Config' 'junctions, $PROFILE, DOTFILES, Windows Terminal'
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     # Query again after Scoop or Chocolatey may have installed pwsh. Check every
     # destination before the first config write, including redirected Documents.
@@ -903,6 +937,32 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
                 Copy-Item -LiteralPath $configSource -Destination $configLink -Recurse
                 $configDone += "copied $configLink (no junction possible; run again after changes)"
             }
+        }
+    }
+
+    # 1b. %LOCALAPPDATA%\nvim -> repo\nvim, the same way. Neovim's plugin lockfile
+    #     lives there, so with a junction :PluginsUpdate changes show up in Git.
+    $item = Get-Item -LiteralPath $nvimLink -Force -ErrorAction SilentlyContinue
+    $linked = $item -and $item.LinkType -eq 'Junction' -and (@($item.Target)[0].TrimEnd('\')) -eq $nvimSource.TrimEnd('\')
+    if (-not $linked -and -not ($onNetworkPath -and (Test-TreeCopy $nvimLink $nvimSource))) {
+        if ($item) {
+            $wasLink = Save-Bak $nvimLink
+            if (-not $wasLink) { Backup-Item $nvimLink }
+        }
+        $junctionMade = $false
+        if (-not $onNetworkPath) {
+            try {
+                New-Item -ItemType Junction -Path $nvimLink -Target $nvimSource -ErrorAction Stop | Out-Null
+                $junctionMade = $true
+            } catch {
+                Add-Content -LiteralPath $log -Value "nvim junction failed: $_" -Encoding UTF8
+            }
+        }
+        if ($junctionMade) {
+            $configDone += "junction $nvimLink"
+        } else {
+            Copy-Item -LiteralPath $nvimSource -Destination $nvimLink -Recurse
+            $configDone += "copied $nvimLink (no junction possible; run again after changes)"
         }
     }
 

@@ -53,6 +53,8 @@ if [ "$mode" = --root-apply ]; then
     /usr/bin/python3 -I "$repo/tools/root-shell.py" --audit "$repo"
     root_mode=yes
 fi
+# Neovim comes from its release into ~/.local/bin; the checks below must see it.
+case :$PATH: in *":$HOME/.local/bin:"*) ;; *) PATH=$HOME/.local/bin:$PATH ;; esac
 
 # ---------------------------------------------------------------- output ---
 ok='OK'; failed='FAIL'; arrow='->'; green=''; red=''; bold=''; reset=''
@@ -173,7 +175,7 @@ else
 fi
 
 # ------------------------------------------------------------- questions ---
-base_packages=(zsh tmux git curl wget ca-certificates neovim htop mc mtr-tiny tcpdump iptraf-ng
+base_packages=(zsh tmux git curl wget ca-certificates htop mc mtr-tiny tcpdump iptraf-ng
     bind9-dnsutils rsync unzip iproute2 sl python3)
 # The tool set, the same on Windows (scoop); lazydocker isn't in Debian.
 tool_packages=(lazygit ripgrep fzf fd-find bat eza zoxide btop du-dust gdu duf tealdeer inxi)
@@ -189,9 +191,11 @@ declare -A font_sha256=(
     ['MesloLGS NF Italic.ttf']=6f357bcbe2597704e157a915625928bca38364a89c22a4ac36e7a116dcd392ef
     ['MesloLGS NF Bold Italic.ttf']=56b4131adecec052c4b324efb818dd326d586dbc316fc68f98f1cae2eb8d1220
 )
-# Repo file (under linux/) -> place in $HOME
-links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf
-       .local/share/nvim/site/syntax/pow.vim .local/share/nvim/site/ftdetect/pow.vim)
+# Repo file (under linux/ unless link_source says otherwise) -> place in $HOME.
+# .config/nvim is a folder: the shared Neovim config for Linux, macOS and Windows.
+links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf .config/nvim)
+declare -A link_source=([.config/nvim]=nvim)
+link_src() { printf '%s' "$repo/${link_source[$1]:-linux/$1}"; }
 # Lines only in the user's copy of these are reported: they may be machine-local.
 declare -A local_file=([.zshrc]='~/.zshrc.local' [.alias]='~/.alias.local')
 stamp=$(date +%Y%m%d-%H%M%S)
@@ -209,7 +213,7 @@ labels=(
     'NeoMutt + NeoSolarized theme + existing Neovim composer'
 )
 details=(
-    "${base_packages[*]} ${tool_packages[*]}; lazydocker $lazydocker_version (checksum-checked)"
+    "${base_packages[*]} ${tool_packages[*]}; latest Neovim release, lazydocker $lazydocker_version (checksum-checked)"
     'ohmyzsh, zsh-autosuggestions, zsh-syntax-highlighting, powerlevel10k'
     "chsh to $(command -v zsh || echo /usr/bin/zsh)"
     "$([ "$wsl" = yes ] && echo 'WSL: Windows Terminal uses Windows fonts, install.ps1 installs those' || echo 'into ~/.local/share/fonts')"
@@ -227,11 +231,11 @@ done
 if [ "$root_mode" = yes ]; then
     # Root gets no apt packages from here, but its own pinned lazydocker:
     # root's PATH never sees a user's ~/.local/bin.
-    keys=(ohmyzsh shell lazydocker links)
-    labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root-owned lazydocker' 'Root shell config (backup first)')
-    details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "/root/.local/bin/lazydocker $lazydocker_version (checksum-checked)" "$link_list")
+    keys=(ohmyzsh shell lazydocker neovim links)
+    labels=('Root-owned oh-my-zsh, plugins and p10k' 'zsh as root login shell' 'Root-owned lazydocker' 'Root-owned Neovim' 'Root shell config (backup first)')
+    details=('/root/.oh-my-zsh, cloned from upstream' '/usr/bin/zsh' "/root/.local/bin/lazydocker $lazydocker_version (checksum-checked)" '/root/.local/opt/nvim, latest release (checksum-checked)' "$link_list")
     answer[packages]=no; answer[fonts]=no; answer[mail]=no
-    answer[ohmyzsh]=yes; answer[shell]=yes; answer[lazydocker]=yes; answer[links]=yes
+    answer[ohmyzsh]=yes; answer[shell]=yes; answer[lazydocker]=yes; answer[neovim]=yes; answer[links]=yes
 fi
 
 yn() { if [ "$1" = yes ]; then printf 'Y/n'; else printf 'y/N'; fi; }
@@ -270,7 +274,7 @@ inspect_configs() {
     local rel dest source_file parent target kind lines numbers count
     replace_plan=(); local_notes=(); config_problem=''
     for rel in "${links[@]}"; do
-        source_file=$repo/linux/$rel
+        source_file=$(link_src "$rel")
         dest=$HOME/$rel
         parent=$(dirname -- "$rel")
         while [ "$parent" != . ]; do
@@ -284,6 +288,9 @@ inspect_configs() {
             target=$(readlink -- "$dest")
             [ "$target" != "$source_file" ] || continue
             kind="link to $target"
+        elif [ -d "$dest" ] && [ -d "$source_file" ]; then
+            replace_plan+=("~/$rel (folder) -> moved to ~/.dotfiles-backup/$stamp/$rel")
+            continue
         elif [ -d "$dest" ]; then
             config_problem="~/$rel is a directory; move it away first."
             return
@@ -326,9 +333,9 @@ validate() {
             command -v "$tool" >/dev/null || { echo "$tool is needed for mail; enable core packages or install it first."; return; }
         done
     fi
-    if [ "${answer[lazydocker]:-no}" = yes ]; then
+    if [ "${answer[lazydocker]:-no}" = yes ] || [ "${answer[neovim]:-no}" = yes ]; then
         for tool in curl tar sha256sum; do
-            command -v "$tool" >/dev/null || { echo "$tool is needed for lazydocker; run the normal installer first."; return; }
+            command -v "$tool" >/dev/null || { echo "$tool is needed for lazydocker and Neovim; run the normal installer first."; return; }
         done
     fi
     if [ "${answer[packages]}" = no ]; then
@@ -574,16 +581,87 @@ install_lazydocker() {
     fi
 }
 
+# The latest Neovim release into ~/.local/opt/nvim, linked as ~/.local/bin/nvim
+# (/root/... in root mode); Debian's package is older than the config needs.
+# GitHub's release API gives the version and each file's sha256.
+# Sets neovim_result: installed, current, skipped or failed; and neovim_version.
+install_neovim() {
+    local arch tmp file meta url digest dir=$HOME/.local/opt/nvim nvim=$HOME/.local/bin/nvim
+    neovim_version=''
+    case $(dpkg --print-architecture) in
+        amd64) arch=x86_64 ;; arm64) arch=arm64 ;; *) arch='' ;;
+    esac
+    if [ -z "$arch" ]; then
+        printf 'neovim: no release build for %s, skipped\n' "$(dpkg --print-architecture)" >> "$log"
+        neovim_result=skipped; return
+    fi
+    file=nvim-linux-$arch.tar.gz
+    if ! meta=$(curl -fsSL --retry 3 --retry-delay 2 --connect-timeout 15 -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/neovim/neovim/releases/latest 2>> "$log"); then
+        neovim_result=failed; return
+    fi
+    read -r neovim_version url digest < <(printf '%s' "$meta" | /usr/bin/python3 -I -c '
+import json, re, sys
+release = json.load(sys.stdin)
+tag = release["tag_name"]
+for asset in release["assets"]:
+    if asset["name"] == sys.argv[1]:
+        url, digest = asset["browser_download_url"], asset.get("digest") or ""
+        if re.fullmatch(r"v\d+\.\d+\.\d+", tag) and re.fullmatch(r"sha256:[0-9a-f]{64}", digest) \
+                and url == f"https://github.com/neovim/neovim/releases/download/{tag}/{sys.argv[1]}":
+            print(tag, url, digest[7:])
+' "$file" 2>> "$log") || true
+    if [ -z "${digest:-}" ]; then
+        printf 'neovim: no usable release information\n' >> "$log"
+        neovim_result=failed; return
+    fi
+    if [ "$(readlink -- "$nvim" 2>/dev/null || true)" = ../opt/nvim/bin/nvim ] &&
+            [ "$("$nvim" --version 2>/dev/null | head -n 1)" = "NVIM $neovim_version" ]; then
+        neovim_result=current; return
+    fi
+    tmp=$(mktemp -d)
+    run curl -fL --retry 3 --retry-delay 2 --connect-timeout 15 --progress-bar -o "$tmp/$file" "$url"
+    printf '%s  %s\n' "$digest" "$tmp/$file" > "$tmp/sum"
+    run sha256sum -c "$tmp/sum"
+    # --no-same-owner: as root, tar would otherwise keep the build machine's uid.
+    run tar --no-same-owner -xzf "$tmp/$file" -C "$tmp"
+    run "$tmp/nvim-linux-$arch/bin/nvim" --version
+    mkdir -p "$HOME/.local/opt" "$HOME/.local/bin"
+    # An older release from here is simply replaced; anything else is backed up.
+    if [ -e "$dir" ] || [ -L "$dir" ]; then
+        if [ -d "$dir" ] && [ ! -L "$dir" ] && [ -x "$dir/bin/nvim" ]; then mv -- "$dir" "$tmp/old"
+        else backup "$dir"; fi
+    fi
+    mv -- "$tmp/nvim-linux-$arch" "$dir"
+    if [ -e "$nvim" ] || [ -L "$nvim" ]; then
+        [ "$(readlink -- "$nvim" 2>/dev/null || true)" = ../opt/nvim/bin/nvim ] || backup "$nvim"
+    fi
+    ln -sfn ../opt/nvim/bin/nvim "$nvim"
+    rm -rf -- "$tmp"
+    neovim_result=installed
+}
+neovim_outcome() {
+    case $neovim_result in
+        installed) changes+=("Neovim: $neovim_version in ~/.local/opt/nvim"); done_neovim="Neovim $neovim_version" ;;
+        current) done_neovim='' ;;
+        skipped) warnings+=('Neovim: no release build for this architecture; install Neovim 0.12+ yourself.'); done_neovim='' ;;
+        *) warnings+=('Neovim: the latest release could not be checked or downloaded (network or GitHub rate limit?); run the installer again later.'); done_neovim='' ;;
+    esac
+}
+
 printf '\n'
 
 if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
     package_count=$((${#base_packages[@]} + ${#tool_packages[@]}))
-    step Packages "$package_count apt packages, lazydocker"
+    step Packages "$package_count apt packages, Neovim, lazydocker"
     done_packages=()
     if [ "${#want_packages[@]}" -gt 0 ]; then
         apt_install "${want_packages[@]}"
         done_packages+=("${want_packages[@]}")
     fi
+    install_neovim
+    neovim_outcome
+    [ -z "$done_neovim" ] || done_packages+=("$done_neovim")
     install_lazydocker
     [ "$lazydocker_result" != installed ] || done_packages+=("lazydocker $lazydocker_version")
     # tealdeer needs its page cache once; later updates are `tldr --update`.
@@ -606,7 +684,7 @@ if [ "${answer[packages]}" = yes ] && [ "$skip_packages" = no ]; then
         else warnings+=("importing ~/.z into zoxide failed; it's optional, see the log (${zoxide_import[*]})."); fi
     fi
     if [ "${#done_packages[@]}" -eq 0 ]; then
-        passed "all $package_count installed, lazydocker $lazydocker_version"
+        passed "all $package_count installed, Neovim ${neovim_version:-unchecked}, lazydocker $lazydocker_version"
     else
         changes+=("packages: ${done_packages[*]}")
         passed "installed ${done_packages[*]}"
@@ -688,6 +766,17 @@ if [ "$root_mode" = yes ] && [ "${answer[lazydocker]:-no}" = yes ]; then
         *) warnings+=('lazydocker: no pinned build for this architecture, skipped.'); passed 'skipped (architecture)' ;;
     esac
 fi
+if [ "$root_mode" = yes ] && [ "${answer[neovim]:-no}" = yes ]; then
+    step Neovim 'latest release for root'
+    install_neovim
+    neovim_outcome
+    case $neovim_result in
+        installed) passed "installed $neovim_version" ;;
+        current) passed "already $neovim_version" ;;
+        skipped) passed 'skipped (architecture)' ;;
+        *) passed 'not checked (see warnings)' ;;
+    esac
+fi
 
 if [ "${answer[fonts]}" = yes ] && [ "$skip_fonts" = no ]; then
     step Fonts 'MesloLGS NF'
@@ -721,11 +810,15 @@ if [ "${answer[links]}" = yes ]; then
     step Links "${#links[@]} dotfiles"
     linked=()
     for rel in "${links[@]}"; do
-        source_file=$repo/linux/$rel
+        source_file=$(link_src "$rel")
         dest=$HOME/$rel
-        [ -f "$source_file" ] || fail "Missing in the repo: linux/$rel"
+        [ -e "$source_file" ] || fail "Missing in the repo: ${source_file#"$repo"/}"
         [ "$(readlink -- "$dest" 2>/dev/null || true)" != "$source_file" ] || continue
-        if [ -e "$dest" ] || [ -L "$dest" ]; then
+        if [ -d "$dest" ] && [ ! -L "$dest" ] && [ -d "$source_file" ]; then
+            # A config folder (~/.config/nvim) moves into the backup as a whole.
+            backup "$dest"
+            replaced+=("~/$rel -> ~/.dotfiles-backup/$stamp/$rel")
+        elif [ -e "$dest" ] || [ -L "$dest" ]; then
             [ ! -d "$dest" ] || [ -L "$dest" ] || fail "~/$rel is a directory; nothing was replaced."
             bak=$dest.$stamp.bak
             # Never overwrite a backup; cp -P copies a symlink itself, not its target.

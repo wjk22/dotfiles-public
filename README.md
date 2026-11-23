@@ -5,8 +5,7 @@ useful terminal tools, readable prompts, and a little history. I still prefer
 zsh over fish, still use Ctrl-a in tmux, and my directory colours go back to 1996 :P
 
 One installer per system. Choose what you want, review the plan, and apply it.
-The shell configuration lives here; the Neovim configuration has its own repo:
-[dotfiles-nvim](https://github.com/wjk22/dotfiles-nvim).
+The shell and Neovim configurations both live here; see [Neovim](#neovim).
 
 ## What's new in 0.4.2
 
@@ -138,14 +137,14 @@ btop, dust, gdu, duf and tealdeer. Windows package choices are configurable.
 
 The installer offers six steps: packages, Oh My Zsh and plugins, zsh as your
 login shell, fonts, dotfile links, and NeoMutt with its theme and Neovim composer.
-The mail step is enabled by default; choosing no is remembered for later runs. Debian packages also include Neovim,
-tmux, htop, Midnight Commander, inxi and networking tools. Lazydocker comes
-from a pinned GitHub release with a checked checksum.
+The mail step is enabled by default; choosing no is remembered for later runs. Debian packages also include
+tmux, htop, Midnight Commander, inxi and networking tools. Neovim comes from
+its latest GitHub release, Lazydocker from a pinned one, both checksum-checked.
 
 The shell uses **Oh My Zsh and Powerlevel10k**, autosuggestions, syntax
 highlighting, fzf and zoxide. It links `.zshrc`, `.alias`, `.p10k.zsh`,
-`.dir_colors`, `.config/tmux/tmux.conf` and a Neovim syntax for powwow `.pow`
-files (`.local/share/nvim/site`) from this checkout into your home.
+`.dir_colors`, `.config/tmux/tmux.conf` and the `.config/nvim` folder from this
+checkout into your home.
 Keep the checkout where it is while those links are in use.
 
 Install commands and their output stream to the terminal and the run's log,
@@ -223,9 +222,9 @@ login shell. It shows the destination files before asking for `a` to apply.
 It reuses the shell files and the existing installer's plugin, backup and link
 steps. Root mode does not install packages or fonts: system Git and zsh must
 already be installed; the normal setup supplies the other system tools. The one
-exception is lazydocker, which isn't a Debian package: root gets its own pinned,
-checksum-checked copy in `/root/.local/bin`, since root never uses a user's
-`~/.local/bin`.
+exceptions are lazydocker and Neovim, which come from GitHub releases: root gets
+its own checksum-checked copies in `/root/.local`, since root never uses a user's
+`~/.local/bin`. Root's `~/.config/nvim` is the same Neovim config, from the snapshot.
 
 Root's config links point into **`/root/.dotfiles/<snapshot-id>/`**, a root-owned
 snapshot of allowlisted regular files from your checkout, never into your checkout.
@@ -264,12 +263,12 @@ In zsh, `nmutt` is the short alias for `neomutt`, like `nvim` for Neovim.
 Open a new shell or run `source ~/.alias` to load it.
 
 The mail mode creates a private loader in `~/.config/neomutt/neomuttrc`
-(honouring `XDG_CONFIG_HOME`). It requires
-an existing `nvim` executable and does not install or change your editor config.
+(honouring `XDG_CONFIG_HOME`). It needs
+`nvim` (step 1 installs it) and does not change your editor config.
 It prepares the configuration without sudo by default. Add `--sudo` to also
 install the `neomutt` package when missing. Missing or denied sudo leaves package
 installation to an administrator while completing the private configuration.
-The current `dotfiles-nvim` setup uses **NeoSolarized dark with a transparent
+The Neovim config here uses **NeoSolarized dark with a transparent
 background**, Solarized lualine, two-space indentation and a Space leader.
 The mail theme uses that NeoSolarized palette too: muted grey text, blue and
 cyan accents, a dark status bar with a small blue MAIL label like lualine,
@@ -339,7 +338,7 @@ The ten selectable steps are:
    PowerShell 7.4 or newer.
 5. **MesloLGS NF fonts:** installed for the current user; step 6 makes them
    the Windows Terminal font.
-6. **PowerShell config:** the config folder, a small `$PROFILE` bootstrap,
+6. **PowerShell config:** the config folder, the Neovim config (`%LOCALAPPDATA%\nvim`), a small `$PROFILE` bootstrap,
    the `DOTFILES` environment variable used by `help-dots`, and Windows Terminal:
    PowerShell 7 as the default profile, Windows PowerShell 5.1 and Azure Cloud
    Shell hidden from the list, and MesloLGS NF as the font of every profile.
@@ -450,14 +449,140 @@ A few favourites:
 - `cat file` or `bcat file`: bat, called `batcat` on Debian. For the original
   reader, use `command cat` on Linux or `Get-Content` in PowerShell.
 - `ls`, `ll`, `lla`, `el`, `es`, `esa`: eza listings with icons; `z project` / `zi project`: jump with zoxide.
-- `v` / `vim`: Neovim. This repo installs the program and aliases, not its config.
+- `v` / `vim`: Neovim with the shared config; see [Neovim](#neovim).
 - `help-dots`: the full cheat sheet. `q` closes the viewer.
 - Windows: `gsudo command` elevates one command; `tc` opens Total Commander,
   preferring TC Ultima Prime when installed.
 
-The separate [Neovim setup](https://github.com/wjk22/dotfiles-nvim) has its own
-requirements and installers. Installing the distro's `nvim` package here does
-not guarantee that it meets that configuration's required version.
+## Neovim
+
+My familiar Neovim setup for **Neovim 0.12+**, one `nvim/` folder for Linux, WSL,
+macOS and Windows: the original transparent **NeoSolarized** theme, Solarized
+lualine, custom powerline tabline and a Powwow `.pow` syntax. It used to live in
+dotfiles-nvim; that repo is retired.
+
+The installers link it: `~/.config/nvim` on Linux and macOS, a junction at
+`%LOCALAPPDATA%\nvim` on Windows (a copy when the checkout is on a network path).
+An existing config is backed up first. Neovim itself stays current: Linux installs
+the latest release into `~/.local/opt/nvim` (checksum from GitHub's release data,
+Debian's package is too old), macOS upgrades Homebrew's `neovim`, Windows updates
+Scoop's. Root setup gets the same config and its own Neovim in `/root/.local`.
+
+Start `nvim`. The first launch downloads plugins into Neovim's data directory.
+Later launches do not check for updates. The committed `nvim/nvim-pack-lock.json`
+records the tested revisions for other machines. Tests: in an isolated profile,
+`nvim --headless '+lua dofile("tests/nvim/smoke.lua")'` from the checkout.
+
+### Personal settings
+
+Keep changes in **`nvim.local.lua` beside the config directory**, not inside the
+shared files. It loads last and survives reinstalling the config:
+
+- Linux/WSL: `~/.config/nvim.local.lua` (or `$XDG_CONFIG_HOME/nvim.local.lua`).
+- Windows: normally `%LOCALAPPDATA%\nvim.local.lua`.
+- Custom app name/path: `:lua print(vim.fn.stdpath('config') .. '.local.lua')`.
+
+```lua
+vim.opt.scrolloff = 12
+vim.keymap.set('n', '<leader>w', '<Cmd>write<CR>')
+-- Disable format-on-save for this filetype; Space f still formats explicitly.
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = 'python',
+  callback = function() vim.b.dotfiles_format_on_save = false end,
+})
+```
+
+### Language tools
+
+Buffer, path and snippet completion work immediately. Full diagnostics,
+navigation and language-aware completion need the corresponding server.
+Open **`:Mason`** to install the ones you use. Installed servers enable automatically;
+the same servers already available on PATH work too.
+
+| Language | Mason package | Extra runtime/toolchain |
+|---|---|---|
+| Go | `gopls` | Go |
+| Rust | `rust-analyzer` | Rust toolchain and rust-src for standard-library navigation |
+| Python | `basedpyright` | Python and pip |
+| Lua / Neovim config | `lua-language-server` | Standalone binary |
+| Shell | `bash-language-server` | Node.js and npm |
+| JavaScript / TypeScript / JSX / TSX | `typescript-language-server` | Node.js and npm |
+| ESLint | `eslint-lsp` | Node.js, npm and the project's ESLint config |
+| HTML / CSS / JSON | `html-lsp`, `css-lsp`, `json-lsp` | Node.js and npm |
+| YAML | `yaml-language-server` | Node.js and npm |
+| PHP | `intelephense` | Node.js and npm |
+
+If the runtimes are ready and you want the whole set:
+
+```vim
+:MasonInstall gopls rust-analyzer basedpyright lua-language-server bash-language-server typescript-language-server eslint-lsp html-lsp css-lsp json-lsp yaml-language-server intelephense
+```
+
+This repo does not install Node, Python, Go or Rust globally or force the web stack
+onto people who do not need it. `:checkhealth mason` and `:checkhealth vim.lsp`
+show missing tools and attachment problems.
+
+### Syntax parsers
+
+Install a C compiler, `curl`, `tar`, and
+[tree-sitter CLI 0.26.1+](https://github.com/tree-sitter/tree-sitter/releases)
+through your package manager or its official binary releases. Then run:
+
+```vim
+:ParsersInstall
+```
+
+It installs web parsers plus Go, Rust, Python, Lua, shell, JSON/YAML/TOML,
+Markdown, Vim, PHP, Fish and Swift. `:TSInstall <language>` installs one instead.
+The current nvim-treesitter `main` API is used, not the frozen old `master` API.
+Highlighting falls back to Vim syntax until a parser is available. Powwow `.pow`
+files keep their own syntax in `nvim/syntax/pow.vim`.
+
+### Familiar keys
+
+Space stays the leader. Two-space indentation, unwrapped lines and the old
+delete/register behaviour stay too.
+
+| Keys | Action |
+|---|---|
+| `ss`, `sv`; `sh`, `sj`, `sk`, `sl` | Split horizontally/vertically; move between windows |
+| `Tab`, `Shift-Tab` (normal mode); `te` | Next/previous tab; start `:tabedit` |
+| `Space d`, `x`; `dw`; `Ctrl-a` | Delete without yanking; backwards-word deletion; select all |
+| `Space ff`, `Space fg`, `Space fb` | Find files; search contents; Ivy file browser |
+| `\\`, `;;` | Buffers; help tags |
+| `Space dff`, `sf`, `fi` | File tree in the current window |
+| `gd`, `gD`, `gi` | Definition; declaration; implementation |
+| `K`, `Ctrl-k` (insert mode) | Hover; signature help |
+| `gh`, `gp`, `gr` | LSP finder; peek definition; rename |
+| `Space rn`, `Space ca`, `Space f` | Rename; code action; format |
+| `Space e`, `Ctrl-j`, `Space q`, `Space lsp` | Diagnostic float; next; list; LSP status |
+| `gcc`, `gc` + motion | Comment line/selection (built into Neovim) |
+| `Ctrl-n` | vim-visual-multi selection |
+
+Completion keeps Tab/Shift-Tab, arrows, Ctrl-Space, Ctrl-e, Ctrl-d/Ctrl-f and Enter.
+Snippets use Neovim's built-in engine and friendly-snippets; the conflicting
+LuaSnip/UltiSnips pair and its Python host are no longer needed.
+
+The tree is now **nvim-tree**, replacing Defx. `c/m/p` copy/cut/paste, `r` rename,
+`d` delete, `E` vertical split, `P` preview, `h` parent, `~` home and `q` close stay.
+`N`/`K` open the create prompt; end the name with `/` for a directory.
+`.` toggles dotfiles, Space marks an item; `g?` lists the complete tree keymap.
+Fugitive's `:Git` and `:GBrowse` stay, with `:g` and `:gopen` abbreviations.
+
+### Updates
+
+- Pull this repo; the linked config is current at once. The installer keeps
+  Neovim itself on the latest release.
+- **`:PluginsRestore`** aligns installed plugins with the checked-in lockfile;
+  review its tab, then `:write` to apply or `:quit` to cancel.
+- **`:PluginsUpdate`** checks upstream plugins and shows the same review tab.
+  The lockfile changes only when you apply; keep that change in Git to use the
+  same versions everywhere. Blink stays on its stable 1.x series.
+- **`:MasonUpdate`** refreshes the tool catalogue; manage installed tools in `:Mason`.
+- **`:TSUpdate`** updates installed parsers. Updating nvim-treesitter through the
+  plugin manager also triggers this so its queries and parsers stay together.
+- Restart Neovim after plugin/parser updates.
+
 
 ## Updates, backups and logs
 

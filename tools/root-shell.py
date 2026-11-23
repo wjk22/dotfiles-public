@@ -19,11 +19,29 @@ FILES = (
     'install.sh', 'HELP.md', 'tools/root-shell.py', 'tools/nssh.py',
     'linux/.zshrc', 'linux/.alias', 'linux/.p10k.zsh',
     'linux/.dir_colors', 'linux/.config/tmux/tmux.conf', 'linux/.config/eza/theme.yml',
-    'linux/.local/share/nvim/site/syntax/pow.vim', 'linux/.local/share/nvim/site/ftdetect/pow.vim',
+    'nvim/init.lua',
 )
-MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf',
-           '.local/share/nvim/site/syntax/pow.vim', '.local/share/nvim/site/ftdetect/pow.vim')
+# The Neovim config folder: every tracked file under nvim/, with plain names only.
+NVIM_FILE = re.compile(r'nvim/(?:[A-Za-z0-9_][A-Za-z0-9_.-]*/){0,4}[A-Za-z0-9_][A-Za-z0-9_.-]*')
+NVIM_MAX = 200
+MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf', '.config/nvim')
+# Managed folders link to the snapshot's top level, everything else to linux/.
+LINK_SOURCE = {'.config/nvim': 'nvim'}
 SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+
+def nvim_files(repo):
+    """The working tree's nvim/ files; editor droppings and dot files stay out."""
+    names = []
+    for folder, dirs, files in os.walk(repo / 'nvim'):
+        dirs[:] = sorted(d for d in dirs if not d.startswith('.'))
+        for file in files:
+            name = (Path(folder) / file).relative_to(repo).as_posix()
+            if NVIM_FILE.fullmatch(name) and not name.endswith('~'):
+                names.append(name)
+    if len(names) > NVIM_MAX:
+        raise ValueError('Unexpectedly many files under nvim/')
+    return names
 
 
 def snapshot(repo):
@@ -31,7 +49,7 @@ def snapshot(repo):
     buffer = io.BytesIO()
     receiver = None
     with tarfile.open(fileobj=buffer, mode='w') as archive:
-        for name in FILES:
+        for name in sorted(set(FILES) | set(nvim_files(repo))):
             path = repo
             for part in Path(name).parts:
                 path /= part
@@ -95,7 +113,7 @@ def audit():
         secure(path)
         if path.is_symlink():
             raise ValueError(f'Redirected install parent: {path}')
-    for name in ('.oh-my-zsh', '.local/bin', '.local/state/dotfiles',
+    for name in ('.oh-my-zsh', '.local/bin', '.local/opt', '.local/state/dotfiles',
                  '.zshrc.local', '.alias.local', '.zshenv', '.zprofile', '.zlogin', '.zlogout'):
         secure(ROOT / name, tree=True)
         secure(ROOT / (name + '.zwc'), tree=True)
@@ -109,7 +127,7 @@ def audit():
         compiled = Path(str(path) + '.zwc')
         if compiled.exists() or compiled.is_symlink():
             raise ValueError(f'Remove or back up stale compiled config before installing: {compiled}')
-        if path.is_dir() and not path.is_symlink():
+        if path.is_dir() and not path.is_symlink() and name not in LINK_SOURCE:
             raise ValueError(f'Expected a config file, found a directory: {path}')
         if path.exists() and not path.is_symlink() and not path.is_file():
             raise ValueError(f'Expected a config file, found a special file: {path}')
@@ -127,23 +145,26 @@ def receive(revision, yes):
         for item in archive:
             if item.isdir():
                 continue
-            if item.name not in FILES or not item.isfile() or item.name in contents:
+            allowed = item.name in FILES or NVIM_FILE.fullmatch(item.name)
+            if not allowed or not item.isfile() or item.name in contents or len(contents) > len(FILES) + NVIM_MAX:
                 raise ValueError(f'Unexpected file or link in snapshot: {item.name}')
             contents[item.name] = archive.extractfile(item).read()
-    if set(contents) != set(FILES):
+    if not set(FILES) <= set(contents):
         raise ValueError('Incomplete root snapshot')
     destination = ROOT / '.dotfiles' / revision
     secure(destination, tree=True)
     print(f'Root shell preview: snapshot {revision[:12]} -> {destination}', flush=True)
     for name in MANAGED:
         path = ROOT / name
-        if path.is_symlink() and os.readlink(path) == str(destination / 'linux' / name):
+        source = destination / LINK_SOURCE.get(name, 'linux/' + name)
+        if path.is_symlink() and os.readlink(path) == str(source):
             action = 'already linked'
         else:
             action = 'replace with timestamped backups' if path.exists() or path.is_symlink() else 'create'
         print(f'  {path}: {action}')
     print('  /root/.oh-my-zsh: root-owned upstream plugins; root login shell: zsh')
     print('  /root/.local/bin/lazydocker: pinned release, checksum-checked')
+    print('  /root/.local/opt/nvim: latest Neovim release, checksum-checked')
     print('  Local overrides kept; no system packages, fonts or normal-user config copied.', flush=True)
     if not yes:
         # A buffered read/write stream (r+) requires seeking; a TTY cannot seek.
