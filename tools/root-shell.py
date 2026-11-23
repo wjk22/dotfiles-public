@@ -16,7 +16,7 @@ import tarfile
 
 ROOT = Path('/root')
 FILES = (
-    'install.sh', 'HELP.md', 'tools/root-shell.py',
+    'install.sh', 'HELP.md', 'tools/root-shell.py', 'tools/nssh.py',
     'linux/.zshrc', 'linux/.alias', 'linux/.p10k.zsh',
     'linux/.dir_colors', 'linux/.config/tmux/tmux.conf', 'linux/.config/eza/theme.yml',
 )
