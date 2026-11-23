@@ -70,7 +70,17 @@ cd dotfiles-public
 
 ### Windows 10/11
 
-Prefer a checkout on a Windows drive, for example `C:\dev\Workspace\dotfiles-public`.
+On a fresh Windows without git, one line in a normal (not elevated) PowerShell
+does everything: it gets git through Scoop (per user, no UAC), clones the repo to
+`C:\Dev\Workspace\dotfiles-public` (or updates the checkout already there), asks
+once whether to allow the Chocolatey step, and starts the installer.
+
+```powershell
+irm https://raw.githubusercontent.com/wjk22/dotfiles-public/master/bootstrap.ps1 | iex
+```
+
+With git already installed, clone it yourself. Prefer a checkout on a Windows
+drive, for example `C:\Dev\Workspace\dotfiles-public`.
 This lets the installer link the PowerShell config with a directory junction.
 A checkout inside WSL also works, but the config is copied instead; rerun the
 installer to refresh that copy after changes.
