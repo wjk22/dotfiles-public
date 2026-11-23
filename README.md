@@ -337,10 +337,10 @@ The ten selectable steps are:
 1. **Chocolatey system packages (requires `--sudo`):** PowerShell 7
    (`powershell-core`, for all users), Everything and Total Commander by default,
    plus the PSWindowsUpdate module for all users.
-2. **Optional Chocolatey apps:** Ditto, ImageGlass, Chrome, Firefox, PotPlayer,
+2. **Optional Chocolatey apps:** Ditto, Chrome, Firefox, PotPlayer,
    System Informer, VS Code, VLC, Python and Seafile by default.
-3. **Scoop tools:** the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
-   and Wox, installed for the current user.
+3. **Scoop tools:** the shared terminal tools, Git, Neovim, gsudo, Oh My Posh,
+   Wox and ImageGlass (`imageglass` from the shell), installed for the current user.
 4. **PowerShell modules:** PSReadLine, Terminal-Icons and PSFzf. This step needs
    PowerShell 7.4 or newer.
 5. **MesloLGS NF fonts:** installed for the current user; step 6 makes them

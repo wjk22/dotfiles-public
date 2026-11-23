@@ -11,7 +11,6 @@
     )
     ChocolateyApps = @(
         'ditto'
-        'imageglass'
         'googlechrome'
         'firefox'
         'potplayer'
@@ -28,6 +27,9 @@
         'gsudo'
         'oh-my-posh'
         'wox'
+        # Per user: Chocolatey's ImageGlass is the Store package, registered only
+        # for the admin account that installs it.
+        'imageglass'
         'lazygit'
         'lazydocker'
         'ripgrep'
