@@ -83,38 +83,103 @@ else
 fi
 
 # nssh: ssh that remembers. `nssh [ssh options] host` connects and keeps the
-# arguments at the top of its list; `nssh` alone picks from that list (most
-# recent first, then the hosts in ~/.ssh/config); `nssh list` prints it.
-# A connection that fails (ssh exits 255) is not remembered.
-_nssh_list() {
-  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts seen
-  [[ -s $file ]] && print -r -- "$(<$file)"
-  seen=$file; [[ -r $seen ]] || seen=/dev/null
-  [[ -r ~/.ssh/config ]] &&
-    awk 'tolower($1) == "host" { for (i = 2; i <= NF; i++) if ($i !~ /[*?!]/) print $i }' ~/.ssh/config |
-    grep -vxF -f "$seen"
-  return 0
+# arguments; `nssh` picks from the list, `nssh list` shows it numbered with a
+# name and when it was last used (most recent first, then the hosts in
+# ~/.ssh/config). `nssh 3` or `nssh name` connects, `nssh r 3 name` names an
+# entry, `nssh d 3` deletes one. A failed connection (ssh exits 255) is not
+# remembered. List: ~/.local/share/nssh/hosts, one "time<TAB>name<TAB>args".
+_nssh_load() {
+  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts line h
+  typeset -ga _nssh_when _nssh_name _nssh_args
+  _nssh_when=() _nssh_name=() _nssh_args=()
+  if [[ -r $file ]]; then
+    while IFS= read -r line; do
+      [[ -n $line ]] || continue
+      if [[ $line == *$'\t'*$'\t'* ]]; then
+        _nssh_when+=(${line%%$'\t'*}); line=${line#*$'\t'}
+        _nssh_name+=("${line%%$'\t'*}") _nssh_args+=("${line#*$'\t'}")
+      else
+        _nssh_when+=(0) _nssh_name+=('') _nssh_args+=("$line")  # list without names or times
+      fi
+    done < $file
+  fi
+  [[ -r ~/.ssh/config ]] || return 0
+  for h in ${(f)"$(awk 'tolower($1) == "host" { for (i = 2; i <= NF; i++) if ($i !~ /[*?!]/) print $i }' ~/.ssh/config)"}; do
+    (( ${_nssh_args[(Ie)$h]} || ${_nssh_name[(Ie)$h]} )) && continue
+    _nssh_when+=(-1) _nssh_name+=("$h") _nssh_args+=("$h")
+  done
+}
+_nssh_save() {
+  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts i
+  mkdir -p -- ${file:h}
+  for (( i = 1; i <= $#_nssh_args; i++ )); do
+    (( _nssh_when[i] >= 0 )) && print -r -- "${_nssh_when[i]}"$'\t'"${_nssh_name[i]}"$'\t'"${_nssh_args[i]}"
+  done | sort -t $'\t' -k1,1nr -s >| $file.tmp && mv -f -- $file.tmp $file
+  _nssh_load
+}
+_nssh_ago() {
+  local d=$(( EPOCHSECONDS - $1 ))
+  if (( $1 < 0 )); then print -r -- 'ssh config'
+  elif (( $1 == 0 )); then print -r -- '-'
+  elif (( d < 60 )); then print -r -- 'just now'
+  elif (( d < 3600 )); then print -r -- "$(( d / 60 ))m ago"
+  elif (( d < 86400 )); then print -r -- "$(( d / 3600 ))h ago"
+  elif (( d < 7 * 86400 )); then print -r -- "$(( d / 86400 ))d ago"
+  else strftime '%Y-%m-%d' $1
+  fi
+}
+_nssh_show() {
+  local i w=4 n
+  for n in $_nssh_name; do (( $#n > w )) && w=$#n; done
+  for (( i = 1; i <= $#_nssh_args; i++ )); do
+    printf "%3d  %-${w}s  %-10s  %s\n" $i "${_nssh_name[i]}" "$(_nssh_ago ${_nssh_when[i]})" "${_nssh_args[i]}"
+  done
+}
+_nssh_index() {
+  if [[ $1 == <-> ]] && (( $1 >= 1 && $1 <= $#_nssh_args )); then print -r -- $1; return; fi
+  [[ $1 != <-> ]] && (( ${_nssh_name[(Ie)$1]} )) && { print -r -- ${_nssh_name[(Ie)$1]}; return }
+  print -u2 -r -- "nssh: no entry $1 (see nssh list)"; return 1
 }
 nssh() {
-  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts pick line rc
-  if [[ $# -eq 1 && $1 == list ]]; then _nssh_list; return; fi
-  if (( $# == 0 )); then
-    if (( $+commands[fzf] )); then
-      pick=$(_nssh_list | fzf --no-sort --reverse --height=40% --prompt='nssh> ') || return
-    else
-      local -a items=("${(@f)$(_nssh_list)}")
-      select pick in $items; do break; done
-    fi
-    [[ -n $pick ]] || return
-    set -- ${(Q)${(z)pick}}
+  zmodload zsh/datetime
+  _nssh_load
+  local i pick line rc
+  if [[ $# -eq 1 && $1 == list ]]; then _nssh_show; return; fi
+  if [[ $# -eq 3 && $1 == r ]]; then
+    i=$(_nssh_index $2) || return 1
+    if [[ $3 == (*[[:space:]]*|<->|list|r|d) ]]; then print -u2 -r -- "nssh: a name is one word, not a number or list/r/d"; return 1; fi
+    if (( ${_nssh_name[(Ie)$3]} && ${_nssh_name[(Ie)$3]} != i )); then print -u2 -r -- "nssh: $3 is taken"; return 1; fi
+    _nssh_name[i]=$3; (( _nssh_when[i] < 0 )) && _nssh_when[i]=0
+    _nssh_save; _nssh_show; return
   fi
+  if [[ $# -eq 2 && $1 == d ]]; then
+    i=$(_nssh_index $2) || return 1
+    if (( _nssh_when[i] < 0 )); then print -u2 -r -- "nssh: ${_nssh_args[i]} comes from ~/.ssh/config; remove it there"; return 1; fi
+    _nssh_when[i]=() _nssh_name[i]=() _nssh_args[i]=()
+    _nssh_save; _nssh_show; return
+  fi
+  i=0
+  if (( $# == 0 )); then
+    (( $#_nssh_args )) || { print -r -- 'nssh: nothing remembered yet; "nssh user@host" connects and remembers it.'; return }
+    if (( $+commands[fzf] )); then
+      pick=$(_nssh_show | fzf --no-sort --reverse --height=40% --prompt='nssh> ') || return
+      i=${${(s: :)pick}[1]}
+    else
+      _nssh_show; read -r 'i?Number: '
+    fi
+    i=$(_nssh_index "$i") || return
+  elif (( $# == 1 )) && { [[ $1 == <-> ]] || (( ${_nssh_name[(Ie)$1]} )) }; then
+    i=$(_nssh_index $1) || return
+  fi
+  (( i )) && set -- ${(Q)${(z)_nssh_args[i]}}
   command ssh "$@"
   rc=$?
   if (( rc != 255 )); then
     line=${(j: :)${(q-)@}}
-    mkdir -p -- ${file:h}
-    { print -r -- $line; [[ -r $file ]] && grep -vxF -- $line $file; true } >| $file.tmp &&
-      mv -f -- $file.tmp $file
+    i=${_nssh_args[(Ie)$line]} pick=
+    if (( i )); then pick=${_nssh_name[i]}; _nssh_when[i]=() _nssh_name[i]=() _nssh_args[i]=(); fi
+    _nssh_when=($EPOCHSECONDS $_nssh_when) _nssh_name=("$pick" "${_nssh_name[@]}") _nssh_args=("$line" "${_nssh_args[@]}")
+    _nssh_save
   fi
   return rc
 }
