@@ -190,7 +190,8 @@ declare -A font_sha256=(
     ['MesloLGS NF Bold Italic.ttf']=56b4131adecec052c4b324efb818dd326d586dbc316fc68f98f1cae2eb8d1220
 )
 # Repo file (under linux/) -> place in $HOME
-links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf)
+links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf
+       .local/share/nvim/site/syntax/pow.vim .local/share/nvim/site/ftdetect/pow.vim)
 # Lines only in the user's copy of these are reported: they may be machine-local.
 declare -A local_file=([.zshrc]='~/.zshrc.local' [.alias]='~/.alias.local')
 stamp=$(date +%Y%m%d-%H%M%S)

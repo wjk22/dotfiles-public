@@ -19,8 +19,10 @@ FILES = (
     'install.sh', 'HELP.md', 'tools/root-shell.py', 'tools/nssh.py',
     'linux/.zshrc', 'linux/.alias', 'linux/.p10k.zsh',
     'linux/.dir_colors', 'linux/.config/tmux/tmux.conf', 'linux/.config/eza/theme.yml',
+    'linux/.local/share/nvim/site/syntax/pow.vim', 'linux/.local/share/nvim/site/ftdetect/pow.vim',
 )
-MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf')
+MANAGED = ('.zshrc', '.alias', '.p10k.zsh', '.dir_colors', '.config/tmux/tmux.conf',
+           '.local/share/nvim/site/syntax/pow.vim', '.local/share/nvim/site/ftdetect/pow.vim')
 SAFE_PATH = '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
 

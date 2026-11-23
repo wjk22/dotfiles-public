@@ -144,7 +144,8 @@ from a pinned GitHub release with a checked checksum.
 
 The shell uses **Oh My Zsh and Powerlevel10k**, autosuggestions, syntax
 highlighting, fzf and zoxide. It links `.zshrc`, `.alias`, `.p10k.zsh`,
-`.dir_colors` and `.config/tmux/tmux.conf` from this checkout into your home.
+`.dir_colors`, `.config/tmux/tmux.conf` and a Neovim syntax for powwow `.pow`
+files (`.local/share/nvim/site`) from this checkout into your home.
 Keep the checkout where it is while those links are in use.
 
 Install commands and their output stream to the terminal and the run's log,

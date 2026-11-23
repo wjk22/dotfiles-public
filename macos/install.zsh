@@ -162,8 +162,11 @@ link_source=(
     .dir_colors linux/.dir_colors
     .config/tmux/tmux.conf linux/.config/tmux/tmux.conf
     .config/ghostty/config.ghostty macos/.config/ghostty/config.ghostty
+    .local/share/nvim/site/syntax/pow.vim linux/.local/share/nvim/site/syntax/pow.vim
+    .local/share/nvim/site/ftdetect/pow.vim linux/.local/share/nvim/site/ftdetect/pow.vim
 )
-links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf .config/ghostty/config.ghostty)
+links=(.zshrc .alias .p10k.zsh .dir_colors .config/tmux/tmux.conf .config/ghostty/config.ghostty
+       .local/share/nvim/site/syntax/pow.vim .local/share/nvim/site/ftdetect/pow.vim)
 # Lines only in the user's copy of these are reported: they may be machine-local.
 typeset -A local_file
 local_file=(.zshrc '~/.zshrc.local' .alias '~/.alias.local')
