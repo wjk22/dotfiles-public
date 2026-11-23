@@ -183,12 +183,16 @@ $fontSha256 = [ordered]@{
     'MesloLGS NF Bold Italic.ttf' = '56B4131ADECEC052C4B324EFB818DD326D586DBC316FC68F98F1CAE2EB8D1220'
 }
 function Resolve-Pwsh {
-    # Prefer the per-user Scoop runtime; also support an existing system install.
+    # Prefer PowerShell 7 for all users (Chocolatey's powershell-core): it is the one
+    # Windows Terminal lists as "PowerShell". A per-user Scoop runtime from an older
+    # setup, or any pwsh on PATH, still works.
+    $machinePwsh = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+    if (Test-Path -LiteralPath $machinePwsh) { return $machinePwsh }
     $scoopPwsh = Join-Path $scoopRoot 'apps\pwsh\current\pwsh.exe'
     if (Test-Path -LiteralPath $scoopPwsh) { return $scoopPwsh }
     $command = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if ($command) { return $command.Source }
-    return (Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe')
+    return $machinePwsh
 }
 $pwsh = Resolve-Pwsh
 $configLink = Join-Path $env:USERPROFILE '.config\powershell'
@@ -199,8 +203,8 @@ $questions = @(
     @{ Key = 'apps'; Label = 'Optional Chocolatey apps (requires --sudo)'; Detail = ($appPackages -join ' ') },
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
-    @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'set them in Windows Terminal afterwards' },
-    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable' }
+    @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'step 6 makes them the Windows Terminal font' },
+    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' }
 )
 # ------------------------------------------------------- existing config ---
 # Looked at before anything changes: what gets replaced, its .bak, and lines
@@ -379,10 +383,10 @@ function Test-Plan {
     $installsPwsh = ($answer['scoop'] -eq 'yes' -and $scoopApps -contains 'pwsh') -or
         ($Sudo -and $answer['choco'] -eq 'yes' -and ($systemPackages -contains 'powershell-core' -or ($answer['apps'] -eq 'yes' -and $appPackages -contains 'powershell-core')))
     if ($needsPwsh -and -not $installsPwsh -and -not (Test-Path $pwsh)) {
-        return 'PowerShell 7 is missing; select Scoop with pwsh, allow powershell-core through Chocolatey with --sudo, install it first, or disable steps 4 and 6.'
+        return 'PowerShell 7 is missing; allow the Chocolatey step with --sudo (it installs powershell-core), install PowerShell 7 first, or disable steps 4 and 6.'
     }
     if ($answer['modules'] -eq 'yes' -and -not $installsPwsh -and $pwshVersion -and $pwshVersion -lt [version]'7.4') {
-        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); select Scoop with pwsh, allow a Chocolatey upgrade with --sudo, update it first, or disable step 4."
+        return "PowerShell $pwshVersion is too old for the modules step (needs 7.4+); allow the Chocolatey step with --sudo to upgrade it, update it first, or disable step 4."
     }
     if ($answer['scoop'] -eq 'yes' -and $scoopApps.Count -gt 0 -and $scoopApps -notcontains 'git' -and -not (Get-Command git -ErrorAction SilentlyContinue)) {
         return 'Scoop bucket updates need Git; add git to the Scoop group or install it first.'
@@ -529,11 +533,15 @@ function Invoke-LoggedCode([scriptblock]$Block) {
     $ErrorActionPreference = 'Continue'
     try {
         & $Block *>&1 | ForEach-Object {
-            if ($_ -is [Management.Automation.ErrorRecord] -and $_.FullyQualifiedErrorId -notlike 'NativeCommandError*') {
-                $script:cmdletFailed = $true
+            $line = $_
+            if ($_ -is [Management.Automation.ErrorRecord]) {
+                # A native tool's stderr (progress, notes) is shown as the plain line it
+                # wrote, not as a red PowerShell error; its exit code decides failure.
+                if ($_.FullyQualifiedErrorId -like 'NativeCommandError*') { $line = $_.ToString() }
+                else { $script:cmdletFailed = $true }
             }
-            $_ | Out-File -LiteralPath $log -Append -Encoding utf8
-            $_ | Out-Host
+            $line | Out-File -LiteralPath $log -Append -Encoding utf8
+            $line | Out-Host
         }
         $code = $LASTEXITCODE
     } catch {
@@ -677,7 +685,7 @@ if ($answer['modules'] -eq 'yes' -and -not $skipModules) {
     Start-Step 'Modules' ($modules -join ' ')
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     $pwshNow = [version]((& $pwsh -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion.ToString()' | Out-String).Trim() -replace '-.*$', '')
-    if ($pwshNow -lt [version]'7.4') { Stop-Step "PowerShell $pwshNow is too old for PSResourceGet (needs 7.4+); update pwsh through Scoop (step 3)." }
+    if ($pwshNow -lt [version]'7.4') { Stop-Step "PowerShell $pwshNow is too old for PSResourceGet (needs 7.4+); update it through the Chocolatey step (--sudo)." }
     # Runs in pwsh: modules installed from Windows PowerShell land where pwsh doesn't look.
     $moduleScript = @"
 `$ErrorActionPreference = 'Stop'
@@ -754,13 +762,62 @@ if ($answer['fonts'] -eq 'yes') {
     if ($newFonts -eq 0) {
         Complete-Step 'all 4 installed'
     } else {
-        $changes.Add("fonts: $newFonts MesloLGS NF files (set the font in Windows Terminal)")
+        $changes.Add("fonts: $newFonts MesloLGS NF files")
         Complete-Step "installed $newFonts"
     }
 }
 
+# Windows Terminal's GUID for the PowerShell 7 it finds in Program Files.
+$terminalPwshProfile = '{574e775e-4f2a-5b96-ac1e-a2962a402336}'
+# Settings files of the Windows Terminal builds this user has: inbox/Store and
+# Preview in their package folder, an unpackaged build in AppData.
+function Get-TerminalSettings {
+    $paths = @()
+    foreach ($family in 'Microsoft.WindowsTerminal_8wekyb3d8bbwe', 'Microsoft.WindowsTerminalPreview_8wekyb3d8bbwe') {
+        $package = Join-Path $env:LOCALAPPDATA "Packages\$family"
+        if (Test-Path -LiteralPath $package) { $paths += Join-Path $package 'LocalState\settings.json' }
+    }
+    $unpackaged = Join-Path $env:LOCALAPPDATA 'Microsoft\Windows Terminal'
+    if (Test-Path -LiteralPath $unpackaged) { $paths += Join-Path $unpackaged 'settings.json' }
+    return $paths
+}
+# Runs in pwsh, which reads JSON with comments. Writes the new settings to $Out
+# only when something changes and prints what changed; $Path stays untouched.
+$terminalEdit = @'
+param([string]$Path, [string]$Out, [string]$DefaultProfile, [string]$Font)
+$ErrorActionPreference = 'Stop'
+$settings = $null
+if (Test-Path -LiteralPath $Path) {
+    $text = Get-Content -LiteralPath $Path -Raw
+    if ($text -and $text.Trim()) { $settings = $text | ConvertFrom-Json -AsHashtable }
+}
+if ($null -eq $settings) { $settings = [ordered]@{} }
+$changed = @()
+if ($DefaultProfile -and $settings['defaultProfile'] -ne $DefaultProfile) {
+    $settings['defaultProfile'] = $DefaultProfile
+    $changed += 'default profile PowerShell 7'
+}
+if ($Font) {
+    $profiles = $settings['profiles']
+    # The older form is a plain list of profiles; keep it as the list.
+    if ($profiles -is [System.Collections.IList]) { $profiles = [ordered]@{ list = $profiles } }
+    if ($profiles -isnot [System.Collections.IDictionary]) { $profiles = [ordered]@{} }
+    $settings['profiles'] = $profiles
+    if ($profiles['defaults'] -isnot [System.Collections.IDictionary]) { $profiles['defaults'] = [ordered]@{} }
+    $defaults = $profiles['defaults']
+    if ($defaults['font'] -isnot [System.Collections.IDictionary]) { $defaults['font'] = [ordered]@{} }
+    if ($defaults['font']['face'] -ne $Font) {
+        $defaults['font']['face'] = $Font
+        $changed += "font $Font"
+    }
+}
+if ($changed.Count -eq 0) { return }
+[IO.File]::WriteAllText($Out, ($settings | ConvertTo-Json -Depth 64) + "`n")
+$changed -join ', '
+'@
+
 if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
-    Start-Step 'Config' 'junction, $PROFILE, DOTFILES'
+    Start-Step 'Config' 'junction, $PROFILE, DOTFILES, Windows Terminal'
     if (-not (Test-Path $pwsh)) { Stop-Step "PowerShell 7 not found at $pwsh." }
     # Query again after Scoop or Chocolatey may have installed pwsh. Check every
     # destination before the first config write, including redirected Documents.
@@ -823,6 +880,46 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
         $configDone += "DOTFILES=$repo"
     }
     $env:DOTFILES = $repo
+
+    # 4. Windows Terminal: PowerShell 7 as the default profile, MesloLGS NF for every
+    #    profile once the fonts are installed. The file is saved as .bak first.
+    $machinePwsh = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+    $defaultProfile = if ($pwsh -eq $machinePwsh) { $terminalPwshProfile } else { '' }
+    $font = if (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts\MesloLGS NF Regular.ttf')) { 'MesloLGS NF' } else { '' }
+    $terminalFiles = @(Get-TerminalSettings)
+    if (-not $defaultProfile) {
+        $warnings.Add('Windows Terminal default left as it is: PowerShell 7 is not the all-users install; run with --sudo for the Chocolatey step.')
+    }
+    if ($terminalFiles.Count -eq 0) {
+        $warnings.Add('Windows Terminal settings not found; open Windows Terminal once, then run the installer again.')
+    } elseif ($defaultProfile -or $font) {
+        $editScript = Join-Path $env:TEMP "dotfiles-terminal-$PID.ps1"
+        [IO.File]::WriteAllText($editScript, $terminalEdit)
+        # pwsh's error output is collected for the log, not thrown here.
+        $previous = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            foreach ($settingsFile in $terminalFiles) {
+                $newFile = "$settingsFile.dotfiles-new"
+                Remove-Item -LiteralPath $newFile -ErrorAction SilentlyContinue
+                $summary = (& $pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $editScript -Path $settingsFile -Out $newFile -DefaultProfile $defaultProfile -Font $font 2>&1 | Out-String).Trim()
+                if ($LASTEXITCODE -ne 0) {
+                    Add-Content -LiteralPath $log -Value $summary -Encoding UTF8
+                    Remove-Item -LiteralPath $newFile -ErrorAction SilentlyContinue
+                    $warnings.Add("Windows Terminal settings left as they are: $settingsFile could not be read; see the log.")
+                    continue
+                }
+                if (-not (Test-Path -LiteralPath $newFile)) { continue }
+                if (Test-Path -LiteralPath $settingsFile) { $null = Save-Bak $settingsFile }
+                else { New-Item -ItemType Directory -Path (Split-Path -Parent $settingsFile) -Force | Out-Null }
+                Move-Item -LiteralPath $newFile -Destination $settingsFile -Force
+                $configDone += "Windows Terminal: $summary"
+            }
+        } finally {
+            $ErrorActionPreference = $previous
+            Remove-Item -LiteralPath $editScript -ErrorAction SilentlyContinue
+        }
+    }
 
     if ($configDone.Count -eq 0) {
         Complete-Step 'all in place'

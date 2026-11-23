@@ -73,7 +73,8 @@ cd dotfiles-public
 On a fresh Windows without git, one line in a normal (not elevated) PowerShell
 does everything: it gets git through Scoop (per user, no UAC), clones the repo to
 `C:\Dev\Workspace\dotfiles-public` (or updates the checkout already there), asks
-once whether to allow the Chocolatey step, and starts the installer.
+once whether to allow the Chocolatey step (yes by default: it brings PowerShell 7),
+and starts the installer.
 
 ```powershell
 irm https://raw.githubusercontent.com/wjk22/dotfiles-public/master/bootstrap.ps1 | iex
@@ -319,17 +320,22 @@ See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
 
 The six selectable steps are:
 
-1. **Chocolatey system packages (requires `--sudo`):** Everything and Total
-   Commander by default, plus the PSWindowsUpdate module for all users.
+1. **Chocolatey system packages (requires `--sudo`):** PowerShell 7
+   (`powershell-core`, for all users), Everything and Total Commander by default,
+   plus the PSWindowsUpdate module for all users.
 2. **Optional Chocolatey apps:** Ditto, ImageGlass, Chrome, Firefox, PotPlayer,
    System Informer, VS Code, VLC, Python and Seafile by default.
-3. **Scoop tools:** PowerShell 7, the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
+3. **Scoop tools:** the shared terminal tools, Git, Neovim, gsudo, Oh My Posh
    and Wox, installed for the current user.
 4. **PowerShell modules:** PSReadLine, Terminal-Icons and PSFzf. This step needs
    PowerShell 7.4 or newer.
-5. **MesloLGS NF fonts:** installed for the current user.
+5. **MesloLGS NF fonts:** installed for the current user; step 6 makes them
+   the Windows Terminal font.
 6. **PowerShell config:** the config folder, a small `$PROFILE` bootstrap,
-   and the `DOTFILES` environment variable used by `help-dots`.
+   the `DOTFILES` environment variable used by `help-dots`, and Windows Terminal:
+   PowerShell 7 as the default profile and MesloLGS NF as the font of every
+   profile. Terminal's `settings.json` is saved as `.bak` first; a file the
+   installer can't read is left alone with a warning.
 
 The prompt uses **Oh My Posh with the Takuya theme**: path, Git status, time
 and command status. It is a similar two-line setup to Linux, with its own theme.
@@ -337,9 +343,10 @@ PSReadLine uses vi mode and history suggestions; `Ctrl+r` searches history and
 `Ctrl+f` selects files through fzf. Installing Oh My Posh alone does not activate
 the prompt: the PowerShell config step connects it to your profile.
 
-An existing system PowerShell installation is still supported and is not removed;
-the per-user Scoop runtime is preferred when present. Keep `pwsh` in your local
-Scoop list for a fresh user setup, or provide an existing PowerShell 7.4+ runtime.
+PowerShell 7 comes from Chocolatey's `powershell-core`, for all users, so a fresh
+setup needs `--sudo`. It is preferred when present; a per-user Scoop `pwsh` from an
+older setup still works and is not removed. Without `--sudo`, add `pwsh` to your
+local Scoop list or provide an existing PowerShell 7.4+ runtime.
 
 Scoop output appears in the main terminal; with `--sudo`, Chocolatey output appears in its
 elevated window. Both are logged. If Chocolatey fails or elevation is cancelled,

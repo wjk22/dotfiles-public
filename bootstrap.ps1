@@ -69,8 +69,9 @@
     }
 
     Write-Host ''
-    $reply = Read-Host '  Allow the admin step too (Chocolatey apps, one UAC prompt)? [y/N]'
+    # PowerShell 7 itself comes through Chocolatey, so the admin step is the default.
+    $reply = Read-Host '  Allow the admin step (PowerShell 7 and Chocolatey apps, one UAC prompt)? [Y/n]'
     $installArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $target 'install.ps1'))
-    if ($reply -match '^(y|yes)$') { $installArgs += '--sudo' }
+    if ($reply -notmatch '^(n|no)$') { $installArgs += '--sudo' }
     & (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') @installArgs
 }

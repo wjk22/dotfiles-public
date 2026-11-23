@@ -22,8 +22,8 @@ try {
     $local = Join-Path $fixture 'packages.local.psd1'
     $defaults = & $loader
     Assert ($defaults.Scoop -contains 'git') 'Default Scoop list was not loaded'
-    Assert ($defaults.Scoop -contains 'pwsh') 'PowerShell 7 must be available per user without UAC'
-    Assert ($defaults.ChocolateySystem -notcontains 'powershell-core') 'Default PowerShell must be managed per user, not installed twice'
+    Assert ($defaults.ChocolateySystem -contains 'powershell-core') 'PowerShell 7 must be installed for all users through Chocolatey'
+    Assert ($defaults.Scoop -notcontains 'pwsh') 'Default PowerShell must not be installed twice'
     Assert ($defaults.ChocolateySystem -notcontains 'openvpn' -and $defaults.ChocolateySystem -notcontains 'netlimiter') 'Removed packages reappeared'
     "@{ ChocolateySystem=@('custom-system'); ChocolateyApps=@('custom-app'); Scoop=@('custom-tool','custom-tool') }" | Set-Content -LiteralPath $local
     $custom = & $loader
@@ -46,7 +46,8 @@ try {
     $empty = & $loader
     Assert ($empty.Scoop.Count -eq 0 -and $empty.ChocolateySystem.Count -eq 0) 'Empty lists were not preserved'
 
-    # A per-user runtime must win over an unrelated system/PATH installation.
+    # The all-users install (what Windows Terminal lists as "PowerShell") wins;
+    # without it, a per-user Scoop runtime wins over one on PATH.
     $resolver = $main.Find({ param($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Resolve-Pwsh'
     }, $true)
@@ -58,7 +59,18 @@ try {
         [IO.File]::WriteAllText($candidate, 'fixture, never executed')
         try {
             . ([scriptblock]::Create($resolver.Extent.Text))
-            Assert ((Resolve-Pwsh) -eq $candidate) 'Scoop PowerShell was not preferred'
+            $programFiles = $env:ProgramFiles
+            $env:ProgramFiles = Join-Path $fixture 'pf'
+            try {
+                Assert ((Resolve-Pwsh) -eq $candidate) 'Scoop PowerShell was not preferred over PATH'
+                $machine = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+                New-Item -ItemType Directory -Path (Split-Path -Parent $machine) -Force | Out-Null
+                [IO.File]::WriteAllText($machine, 'fixture, never executed')
+                Assert ((Resolve-Pwsh) -eq $machine) 'All-users PowerShell 7 was not preferred'
+            } finally {
+                $env:ProgramFiles = $programFiles
+                Remove-Item -LiteralPath (Join-Path $fixture 'pf') -Recurse -ErrorAction SilentlyContinue
+            }
         } finally {
             Remove-Item -LiteralPath $candidate
             foreach ($directory in @($runtimeDir, (Split-Path -Parent $runtimeDir), (Join-Path $scoopRoot 'apps'), $scoopRoot)) {
@@ -120,7 +132,7 @@ try {
     Assert ((Test-Plan) -like 'Scoop bucket updates need Git*') 'Missing Git dependency not detected'
     $scoopApps = @()
     Assert ((Test-Plan) -eq '') 'Empty Scoop list must not require Git'
-    Write-Output 'PASS: package config, overrides, validation, selection, empty groups, per-user PowerShell dependencies, and script syntax'
+    Write-Output 'PASS: package config, overrides, validation, selection, empty groups, PowerShell 7 dependencies, and script syntax'
 } finally {
     foreach ($name in @('read-packages.ps1', 'packages.psd1', 'packages.local.psd1')) {
         Remove-Item -LiteralPath (Join-Path $fixture $name) -ErrorAction SilentlyContinue

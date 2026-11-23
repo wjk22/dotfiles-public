@@ -2,7 +2,10 @@
 # not uninstall it. Use @() for an empty group.
 # For machine-local choices, copy this file to packages.local.psd1 (Git ignores it).
 @{
+    # powershell-core is PowerShell 7 for all users, in Program Files: Windows
+    # Terminal lists it as "PowerShell", and the config step makes it the default.
     ChocolateySystem = @(
+        'powershell-core'
         'everything'
         'totalcommander'
     )
@@ -21,7 +24,6 @@
     # Package IDs from Scoop's main and extras buckets.
     Scoop = @(
         'git'
-        'pwsh'
         'neovim'
         'gsudo'
         'oh-my-posh'
