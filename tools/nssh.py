@@ -454,4 +454,8 @@ def main(argv):
 
 
 if __name__ == '__main__':
-    sys.exit(main(sys.argv[1:]))
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except KeyboardInterrupt:
+        # Ctrl-C in the list or a prompt just leaves, like q.
+        sys.exit(130)
