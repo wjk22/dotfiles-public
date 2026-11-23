@@ -21,6 +21,7 @@ PowerShell); `q` closes it. Headings are blue, commands and labels are green.
 | `gdu` | interactive cleanup of a disk or folder | `gdu ~`, then `d` delete, `s` / `n` sort by size / name, `q` quit |
 | `duf` | free space on all drives | `duf`, `duf --only local` |
 | `tealdeer` | short examples for any command | `tldr tar`, `tldr --update` (refresh the pages) |
+| `nssh` | ssh that remembers where you connect | `nssh user@host` (connects and remembers, ssh options work), `nssh` (pick from the list), `nssh list` |
 | `inxi` (Linux, macOS) | what's in this machine | `inxi -b` (basic), `inxi -Fxz` (everything, private data hidden) |
 
 On Debian and Ubuntu, `bat` and `fd` are `batcat` and `fdfind`; the aliases make both names work.

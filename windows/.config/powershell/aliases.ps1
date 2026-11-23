@@ -66,6 +66,55 @@ function which ($command) {
 
 function .. { Set-Location .. }
 
+# nssh: ssh that remembers. "nssh [ssh options] host" connects and keeps the
+# arguments at the top of its list; "nssh" alone picks from that list (most
+# recent first, then the hosts in ~\.ssh\config); "nssh list" prints it.
+# A connection that fails (ssh exits 255) is not remembered.
+function Get-NsshList {
+    $file = Join-Path $env:LOCALAPPDATA 'nssh\hosts'
+    $seen = @{}
+    $out = New-Object System.Collections.Generic.List[string]
+    if (Test-Path -LiteralPath $file) {
+        foreach ($l in Get-Content -LiteralPath $file) { if ($l -and -not $seen[$l]) { $seen[$l] = 1; $out.Add($l) } }
+    }
+    $config = Join-Path $HOME '.ssh\config'
+    if (Test-Path -LiteralPath $config) {
+        foreach ($l in Get-Content -LiteralPath $config) {
+            if ($l -match '^\s*Host\s+(.+)$') {
+                foreach ($h in ($Matches[1].Trim() -split '\s+')) {
+                    if ($h -notmatch '[*?!]' -and -not $seen[$h]) { $seen[$h] = 1; $out.Add($h) }
+                }
+            }
+        }
+    }
+    $out
+}
+function nssh {
+    $file = Join-Path $env:LOCALAPPDATA 'nssh\hosts'
+    if ($args.Count -eq 1 -and $args[0] -eq 'list') { Get-NsshList; return }
+    $sshArgs = @($args)
+    if ($sshArgs.Count -eq 0) {
+        $list = @(Get-NsshList)
+        if ($list.Count -eq 0) { Write-Host 'nssh: nothing remembered yet; "nssh user@host" connects and remembers it.'; return }
+        if (Get-Command fzf -ErrorAction SilentlyContinue) {
+            $pick = $list | fzf --no-sort --reverse --height=40% --prompt='nssh> '
+        } else {
+            for ($i = 0; $i -lt $list.Count; $i++) { Write-Host ('{0,3}  {1}' -f ($i + 1), $list[$i]) }
+            $n = Read-Host 'Number'
+            $pick = if ($n -match '^\d+$' -and [int]$n -ge 1 -and [int]$n -le $list.Count) { $list[[int]$n - 1] } else { '' }
+        }
+        if (-not $pick) { return }
+        $sshArgs = @($pick -split '\s+' | Where-Object { $_ })
+    }
+    & ssh @sshArgs
+    if ($LASTEXITCODE -ne 255) {
+        $line = $sshArgs -join ' '
+        New-Item -ItemType Directory -Force -Path (Split-Path $file) | Out-Null
+        $old = if (Test-Path -LiteralPath $file) { @(Get-Content -LiteralPath $file | Where-Object { $_ -and $_ -ne $line }) } else { @() }
+        Set-Content -LiteralPath $file -Value (@($line) + $old)
+    }
+}
+
 # Cheat sheet for this setup; install.ps1 sets DOTFILES to the repo
 function help-dots {
     if (-not $env:DOTFILES) { Write-Warning 'DOTFILES is not set; run install.ps1 again.'; return }

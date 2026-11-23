@@ -82,6 +82,43 @@ else
   alias ports='lsof -nP -iTCP -sTCP:LISTEN -iUDP'
 fi
 
+# nssh: ssh that remembers. `nssh [ssh options] host` connects and keeps the
+# arguments at the top of its list; `nssh` alone picks from that list (most
+# recent first, then the hosts in ~/.ssh/config); `nssh list` prints it.
+# A connection that fails (ssh exits 255) is not remembered.
+_nssh_list() {
+  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts seen
+  [[ -s $file ]] && print -r -- "$(<$file)"
+  seen=$file; [[ -r $seen ]] || seen=/dev/null
+  [[ -r ~/.ssh/config ]] &&
+    awk 'tolower($1) == "host" { for (i = 2; i <= NF; i++) if ($i !~ /[*?!]/) print $i }' ~/.ssh/config |
+    grep -vxF -f "$seen"
+  return 0
+}
+nssh() {
+  local file=${XDG_DATA_HOME:-$HOME/.local/share}/nssh/hosts pick line rc
+  if [[ $# -eq 1 && $1 == list ]]; then _nssh_list; return; fi
+  if (( $# == 0 )); then
+    if (( $+commands[fzf] )); then
+      pick=$(_nssh_list | fzf --no-sort --reverse --height=40% --prompt='nssh> ') || return
+    else
+      local -a items=("${(@f)$(_nssh_list)}")
+      select pick in $items; do break; done
+    fi
+    [[ -n $pick ]] || return
+    set -- ${(Q)${(z)pick}}
+  fi
+  command ssh "$@"
+  rc=$?
+  if (( rc != 255 )); then
+    line=${(j: :)${(q-)@}}
+    mkdir -p -- ${file:h}
+    { print -r -- $line; [[ -r $file ]] && grep -vxF -- $line $file; true } >| $file.tmp &&
+      mv -f -- $file.tmp $file
+  fi
+  return rc
+}
+
 # Cheat sheet for this setup
 help-dots() {
   local viewer
