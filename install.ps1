@@ -99,15 +99,25 @@ Write-Check 'User' "$env:USERNAME, not elevated"
 
 $onNetworkPath = $repo.StartsWith('\\')
 $newCommit = ''
+# MAJOR.MINOR from VERSION, then the commits since VERSION last changed, counting
+# that commit: the commit that sets 0.42 is 0.42.1.
+$versionBase = (@(Get-Content -LiteralPath (Join-Path $repo 'VERSION') -ErrorAction SilentlyContinue) + '' | Select-Object -First 1).Trim()
+if (-not $versionBase) { $versionBase = 'unknown' }
+$version = "$versionBase.dev"
 if (Get-Command git -ErrorAction SilentlyContinue) {
     $dirty = & git -C $repo status --porcelain 2>$null
     if ($LASTEXITCODE -ne 0) { Stop-Install "$repo is not a git checkout; clone the repo and run it from there." }
     $newCommit = (& git -C $repo rev-parse HEAD).Trim()
+    $since = (& git -C $repo log -1 --format=%H -- VERSION) | Select-Object -First 1
+    if ($since) {
+        $count = (& git -C $repo rev-list --count "$since..HEAD") | Select-Object -First 1
+        if ($LASTEXITCODE -eq 0 -and $count -match '^\d+$') { $version = "$versionBase.$([int]$count + 1)" }
+    }
     $repoDetail = if ($dirty) {
-        "$($newCommit.Substring(0, 7)) with local changes; installing current checkout files"
-    } else { "clean at $($newCommit.Substring(0, 7))" }
+        "$version+dev ($($newCommit.Substring(0, 7))) with local changes; installing current checkout files"
+    } else { "$version ($($newCommit.Substring(0, 7))), clean" }
 } else {
-    $repoDetail = 'git not installed yet (scoop brings it); installing current checkout files'
+    $repoDetail = "$version; git not installed yet (scoop brings it); installing current checkout files"
 }
 if ($onNetworkPath) { $repoDetail += '; network path, so the config is copied, not linked' }
 Write-Check 'Repo' $repoDetail

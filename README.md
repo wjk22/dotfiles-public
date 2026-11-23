@@ -24,6 +24,13 @@ The shell configuration lives here; the Neovim configuration has its own repo:
 - **A nicer `cat`:** `cat` and `bcat` use bat in zsh and PowerShell, with syntax
   highlighting and line numbers. Personal aliases and settings live outside the repo.
 
+## Version
+
+`VERSION` holds MAJOR.MINOR, set by hand. The last number counts the commits since
+`VERSION` last changed, counting that commit, so the commit that sets 0.42 is
+**0.42.1** and every commit after it adds one. Both installers show it, for example
+`0.42.3 (1a2b3c4), clean`, with `+dev` when the checkout has local changes.
+
 ## Getting started
 
 Clone the repo and run the installer as your normal user. Linux, macOS and

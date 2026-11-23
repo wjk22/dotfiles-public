@@ -124,12 +124,23 @@ else
     dirty=$(git -C "$repo" status --porcelain 2>/dev/null) || die "$repo is not a git checkout; clone the repo and run it from there."
     new_commit=$(git -C "$repo" rev-parse HEAD)
 fi
+# MAJOR.MINOR from VERSION, then the commits since VERSION last changed, counting
+# that commit: the commit that sets 0.42 is 0.42.1.
+dotfiles_version() {
+    local base since count
+    base=$(head -n 1 "$repo/VERSION" 2>/dev/null | tr -d '[:space:]')
+    [ -n "$base" ] || { printf 'unknown'; return; }
+    since=$(git -C "$repo" log -1 --format=%H -- VERSION 2>/dev/null)
+    count=$(git -C "$repo" rev-list --count "$since..HEAD" 2>/dev/null)
+    if [ -z "$since" ] || [ -z "$count" ]; then printf '%s.dev' "$base"; return; fi
+    printf '%s.%s' "$base" "$((count + 1))"
+}
 if [ "$root_mode" = yes ]; then
     check_ok Repo "private snapshot ${new_commit:0:12}"
 elif [ -n "$dirty" ]; then
-    check_ok Repo "${new_commit:0:7} with local changes; installing current checkout files"
+    check_ok Repo "$(dotfiles_version)+dev (${new_commit:0:7}) with local changes; installing current checkout files"
 else
-    check_ok Repo "clean at ${new_commit:0:7}"
+    check_ok Repo "$(dotfiles_version) (${new_commit:0:7}), clean"
 fi
 
 # Backups go to ~/.dotfiles-backup (private, 0700); never through a link.
