@@ -30,7 +30,9 @@ fi
 # Listings: icons and the Windows-style palette in interactive use.
 # Keep GNU ls (and its historical LS_COLORS) available via `command ls`.
 if command -v eza >/dev/null; then
-  export EZA_CONFIG_DIR="${EZA_CONFIG_DIR:-$DOTFILES/linux/.config/eza}"
+  # Keep a personal EZA_CONFIG_DIR only if it holds a theme; a stale one (a tmux
+  # server started before the repo moved hands down the old path) falls back.
+  [[ -r $EZA_CONFIG_DIR/theme.yml ]] || export EZA_CONFIG_DIR="$DOTFILES/linux/.config/eza"
   function eza {
     # Eza otherwise lets LS_COLORS override the YAML theme. Scope the reset to
     # this command; explicit personal EZA_COLORS overrides still work.
