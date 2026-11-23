@@ -43,4 +43,26 @@
         'tealdeer'
         'tinta'
     )
+
+    # Windows extras that step 7 removes for the current user; with --sudo they are
+    # also no longer provisioned for new users. AppX package names, plus OneDrive,
+    # which is only uninstalled when no folder of yours syncs to it. Remove an
+    # entry to keep that app; anything removed can come back from the Store.
+    Remove = @(
+        'Microsoft.MicrosoftSolitaireCollection'
+        'Microsoft.GamingApp'
+        'Microsoft.XboxGamingOverlay'
+        'Microsoft.XboxGameOverlay'
+        'Microsoft.XboxSpeechToTextOverlay'
+        'MSTeams'
+        'MicrosoftTeams'
+        'Clipchamp.Clipchamp'
+        'Microsoft.BingNews'
+        'Microsoft.BingWeather'
+        'Microsoft.BingSearch'
+        'Microsoft.GetHelp'
+        'Microsoft.Getstarted'
+        'Microsoft.WindowsFeedbackHub'
+        'OneDrive'
+    )
 }

@@ -117,6 +117,7 @@ catch { Stop-Install "Could not read package config: $($_.Exception.Message)" }
 $systemPackages = @($packageConfig.ChocolateySystem)
 $appPackages = @($packageConfig.ChocolateyApps)
 $scoopApps = @($packageConfig.Scoop)
+$removeApps = @($packageConfig.Remove)
 
 $haveChoco = Test-Path (Join-Path $env:ProgramData 'chocolatey\bin\choco.exe')
 $scoopRoot = if ($env:SCOOP) { $env:SCOOP } else { Join-Path $env:USERPROFILE 'scoop' }
@@ -204,7 +205,8 @@ $questions = @(
     @{ Key = 'scoop'; Label = 'Tools via scoop (per user)'; Detail = ($scoopApps -join ' ') },
     @{ Key = 'modules'; Label = 'PowerShell 7 modules (current user)'; Detail = ($modules -join ' ') },
     @{ Key = 'fonts'; Label = 'MesloLGS NF fonts (per user)'; Detail = 'step 6 makes them the Windows Terminal font' },
-    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' }
+    @{ Key = 'config'; Label = 'PowerShell config (backup first)'; Detail = 'junction ~\.config\powershell, $PROFILE bootstrap, DOTFILES variable, Windows Terminal defaults' },
+    @{ Key = 'extras'; Label = 'Remove Windows extras (per user)'; Detail = (($removeApps -join ' ') + '; with --sudo also for new users; OneDrive only if nothing syncs to it') }
 )
 # ------------------------------------------------------- existing config ---
 # Looked at before anything changes: what gets replaced, its .bak, and lines
@@ -572,6 +574,7 @@ if ($Sudo -and $answer['choco'] -eq 'yes') {
     Start-Step 'Chocolatey' 'waiting for the UAC prompt'
     $adminArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$repo\windows\install-admin.ps1`"", '-Log', "`"$log`"")
     if ($answer['apps'] -eq 'yes') { $adminArgs += '-Apps' }
+    if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) { $adminArgs += '-RemoveExtras' }
     $chocoError = ''
     try {
         $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe') `
@@ -767,8 +770,11 @@ if ($answer['fonts'] -eq 'yes') {
     }
 }
 
-# Windows Terminal's GUID for the PowerShell 7 it finds in Program Files.
+# Windows Terminal's GUIDs for the PowerShell 7 it finds in Program Files and for
+# its built-in Windows PowerShell 5.1 profile, and the source of Azure Cloud Shell.
 $terminalPwshProfile = '{574e775e-4f2a-5b96-ac1e-a2962a402336}'
+$terminalWindowsPowerShell = '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}'
+$terminalAzureSource = 'Windows.Terminal.Azure'
 # Settings files of the Windows Terminal builds this user has: inbox/Store and
 # Preview in their package folder, an unpackaged build in AppData.
 function Get-TerminalSettings {
@@ -784,7 +790,7 @@ function Get-TerminalSettings {
 # Runs in pwsh, which reads JSON with comments. Writes the new settings to $Out
 # only when something changes and prints what changed; $Path stays untouched.
 $terminalEdit = @'
-param([string]$Path, [string]$Out, [string]$DefaultProfile, [string]$Font)
+param([string]$Path, [string]$Out, [string]$DefaultProfile, [string]$Font, [string]$HideProfile, [string]$DisableSource)
 $ErrorActionPreference = 'Stop'
 $settings = $null
 if (Test-Path -LiteralPath $Path) {
@@ -797,12 +803,32 @@ if ($DefaultProfile -and $settings['defaultProfile'] -ne $DefaultProfile) {
     $settings['defaultProfile'] = $DefaultProfile
     $changed += 'default profile PowerShell 7'
 }
+$profiles = $settings['profiles']
+# The older form is a plain list of profiles; keep it as the list.
+if ($profiles -is [System.Collections.IList]) { $profiles = [ordered]@{ list = $profiles } }
+if ($profiles -isnot [System.Collections.IDictionary]) { $profiles = [ordered]@{} }
+$settings['profiles'] = $profiles
+if ($HideProfile) {
+    $list = @($profiles['list'] | Where-Object { $null -ne $_ })
+    $entry = $list | Where-Object { $_ -is [System.Collections.IDictionary] -and "$($_['guid'])" -ieq $HideProfile } | Select-Object -First 1
+    if (-not $entry) {
+        $entry = [ordered]@{ guid = $HideProfile }
+        $list += $entry
+    }
+    $profiles['list'] = $list
+    if ($entry['hidden'] -ne $true) {
+        $entry['hidden'] = $true
+        $changed += 'Windows PowerShell 5.1 hidden'
+    }
+}
+if ($DisableSource) {
+    $sources = @($settings['disabledProfileSources'] | Where-Object { $_ })
+    if ($sources -notcontains $DisableSource) {
+        $settings['disabledProfileSources'] = @($sources + $DisableSource)
+        $changed += 'Azure Cloud Shell hidden'
+    }
+}
 if ($Font) {
-    $profiles = $settings['profiles']
-    # The older form is a plain list of profiles; keep it as the list.
-    if ($profiles -is [System.Collections.IList]) { $profiles = [ordered]@{ list = $profiles } }
-    if ($profiles -isnot [System.Collections.IDictionary]) { $profiles = [ordered]@{} }
-    $settings['profiles'] = $profiles
     if ($profiles['defaults'] -isnot [System.Collections.IDictionary]) { $profiles['defaults'] = [ordered]@{} }
     $defaults = $profiles['defaults']
     if ($defaults['font'] -isnot [System.Collections.IDictionary]) { $defaults['font'] = [ordered]@{} }
@@ -881,10 +907,14 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
     }
     $env:DOTFILES = $repo
 
-    # 4. Windows Terminal: PowerShell 7 as the default profile, MesloLGS NF for every
-    #    profile once the fonts are installed. The file is saved as .bak first.
+    # 4. Windows Terminal: PowerShell 7 as the default profile, Windows PowerShell 5.1
+    #    and Azure Cloud Shell hidden, MesloLGS NF for every profile once the fonts
+    #    are installed. The file is saved as .bak first.
     $machinePwsh = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
     $defaultProfile = if ($pwsh -eq $machinePwsh) { $terminalPwshProfile } else { '' }
+    # Windows PowerShell 5.1 is part of Windows and stays; it is only hidden once
+    # PowerShell 7 is the default.
+    $hideProfile = if ($defaultProfile) { $terminalWindowsPowerShell } else { '' }
     $font = if (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft\Windows\Fonts\MesloLGS NF Regular.ttf')) { 'MesloLGS NF' } else { '' }
     $terminalFiles = @(Get-TerminalSettings)
     if (-not $defaultProfile) {
@@ -892,7 +922,7 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
     }
     if ($terminalFiles.Count -eq 0) {
         $warnings.Add('Windows Terminal settings not found; open Windows Terminal once, then run the installer again.')
-    } elseif ($defaultProfile -or $font) {
+    } else {
         $editScript = Join-Path $env:TEMP "dotfiles-terminal-$PID.ps1"
         [IO.File]::WriteAllText($editScript, $terminalEdit)
         # pwsh's error output is collected for the log, not thrown here.
@@ -902,7 +932,12 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
             foreach ($settingsFile in $terminalFiles) {
                 $newFile = "$settingsFile.dotfiles-new"
                 Remove-Item -LiteralPath $newFile -ErrorAction SilentlyContinue
-                $summary = (& $pwsh -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $editScript -Path $settingsFile -Out $newFile -DefaultProfile $defaultProfile -Font $font 2>&1 | Out-String).Trim()
+                # Only arguments with a value: Windows PowerShell drops an empty one.
+                $editArgs = @('-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $editScript,
+                    '-Path', $settingsFile, '-Out', $newFile, '-DisableSource', $terminalAzureSource)
+                if ($defaultProfile) { $editArgs += @('-DefaultProfile', $defaultProfile, '-HideProfile', $hideProfile) }
+                if ($font) { $editArgs += @('-Font', $font) }
+                $summary = (& $pwsh @editArgs 2>&1 | Out-String).Trim()
                 if ($LASTEXITCODE -ne 0) {
                     Add-Content -LiteralPath $log -Value $summary -Encoding UTF8
                     Remove-Item -LiteralPath $newFile -ErrorAction SilentlyContinue
@@ -926,6 +961,66 @@ if ($answer['config'] -eq 'yes' -and -not $skipConfig) {
     } else {
         $changes.Add("config: $($configDone -join '; ')")
         Complete-Step ($configDone -join '; ')
+    }
+}
+
+# Why OneDrive must stay, or '' when nothing of this user syncs through it.
+function Get-OneDriveInUse {
+    $roots = @($env:OneDrive, $env:OneDriveConsumer, $env:OneDriveCommercial | Where-Object { $_ } | ForEach-Object { $_.TrimEnd('\') } | Select-Object -Unique)
+    $shell = Get-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders' -ErrorAction SilentlyContinue
+    if ($shell -and $roots.Count -gt 0) {
+        foreach ($folder in $shell.PSObject.Properties) {
+            if ($folder.Name -like 'PS*') { continue }
+            $value = [Environment]::ExpandEnvironmentVariables([string]$folder.Value).TrimEnd('\')
+            foreach ($root in $roots) {
+                if ($value -ieq $root -or $value.StartsWith("$root\", [StringComparison]::OrdinalIgnoreCase)) {
+                    $name = if ($folder.Name -eq 'Personal') { 'Documents' } else { $folder.Name }
+                    return "your $name folder syncs to OneDrive"
+                }
+            }
+        }
+    }
+    $accounts = @(Get-ChildItem -Path 'HKCU:\Software\Microsoft\OneDrive\Accounts' -ErrorAction SilentlyContinue |
+        Where-Object { $account = Get-ItemProperty -LiteralPath $_.PSPath -ErrorAction SilentlyContinue; $account -and $account.PSObject.Properties.Name -contains 'UserEmail' })
+    if ($accounts.Count -gt 0) { return 'an account is signed in to OneDrive' }
+    return ''
+}
+
+if ($answer['extras'] -eq 'yes' -and $removeApps.Count -gt 0) {
+    Start-Step 'Extras' "$($removeApps.Count) Windows extras"
+    $removed = @()
+    foreach ($name in @($removeApps | Where-Object { $_ -ne 'OneDrive' })) {
+        $found = @(Get-AppxPackage -Name $name -ErrorAction SilentlyContinue)
+        if ($found.Count -eq 0) { continue }
+        if ((Invoke-LoggedCode { $found | Remove-AppxPackage -ErrorAction Stop }) -eq 0) { $removed += $name }
+        else { $warnings.Add("Extras: $name could not be removed; see the log.") }
+    }
+    if ($removeApps -contains 'OneDrive') {
+        # Per user on Windows 11 (in AppData); Windows 10 ships the setup in System32.
+        $setup = @(
+            @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive') -Filter 'OneDriveSetup.exe' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }) +
+            @((Join-Path $env:SystemRoot 'System32\OneDriveSetup.exe'), (Join-Path $env:SystemRoot 'SysWOW64\OneDriveSetup.exe'))
+        ) | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+        $oneDrivePresent = (Test-Path -LiteralPath (Join-Path $env:LOCALAPPDATA 'Microsoft\OneDrive\OneDrive.exe')) -or
+            (Test-Path -LiteralPath (Join-Path $env:ProgramFiles 'Microsoft OneDrive\OneDrive.exe'))
+        if ($oneDrivePresent) {
+            $inUse = Get-OneDriveInUse
+            if ($inUse) {
+                $warnings.Add("Extras: OneDrive kept because $inUse. Move those folders out of OneDrive and sign out first, then run the installer again.")
+            } elseif (-not $setup) {
+                $warnings.Add('Extras: OneDrive kept: its uninstaller was not found.')
+            } else {
+                Stop-Process -Name OneDrive -Force -ErrorAction SilentlyContinue
+                if ((Invoke-LoggedCode { & $setup /uninstall }) -eq 0) { $removed += 'OneDrive' }
+                else { $warnings.Add('Extras: OneDrive could not be uninstalled; see the log.') }
+            }
+        }
+    }
+    if ($removed.Count -eq 0) {
+        Complete-Step 'nothing left to remove'
+    } else {
+        $changes.Add("extras removed: $($removed -join ' ')")
+        Complete-Step "removed $($removed -join ' ')"
     }
 }
 

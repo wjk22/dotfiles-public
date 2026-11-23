@@ -4,9 +4,13 @@ if (-not (Test-Path -LiteralPath $path)) { $path = Join-Path $PSScriptRoot 'pack
 $packages = Import-PowerShellDataFile -LiteralPath $path -ErrorAction Stop
 $groups = @('ChocolateySystem', 'ChocolateyApps', 'Scoop')
 foreach ($key in $packages.Keys) {
-    if ($groups -notcontains $key) { throw "Unknown package group '$key' in $path." }
+    if (($groups + 'Remove') -notcontains $key) { throw "Unknown package group '$key' in $path." }
 }
-foreach ($key in $groups) {
+# Remove is optional in a local file: without it, the default list applies.
+if (-not $packages.ContainsKey('Remove')) {
+    $packages['Remove'] = (Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot 'packages.psd1') -ErrorAction Stop)['Remove']
+}
+foreach ($key in $groups + 'Remove') {
     if (-not $packages.ContainsKey($key) -or $packages[$key] -isnot [array]) {
         throw "Package group '$key' must be an array in $path (use @() for none)."
     }

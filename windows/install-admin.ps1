@@ -3,7 +3,7 @@
   admin rights. install.ps1 runs it once through UAC (it works with a
   separate admin account). It also runs on its own from an elevated PowerShell:
 
-    powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 [-Apps]
+    powershell -ExecutionPolicy Bypass -File .\windows\install-admin.ps1 [-Apps] [-RemoveExtras]
 
   Installs Chocolatey if missing, then installs or upgrades the packages, and
   the PSWindowsUpdate module for all users. Safe to run again.
@@ -12,6 +12,8 @@
 param(
     # Also install the optional apps.
     [switch]$Apps,
+    # Stop provisioning the Windows extras from the Remove list for new users.
+    [switch]$RemoveExtras,
     # Append all output to this log (install.ps1 passes its own); console otherwise.
     [string]$Log
 )
@@ -80,6 +82,19 @@ if (-not (Test-Path $choco)) {
     Remove-Item -LiteralPath $installer -ErrorAction SilentlyContinue
     if ($code -ne 0 -or -not (Test-Path $choco)) { Stop-Admin 'The Chocolatey installer failed.' }
     $done += 'Chocolatey'
+}
+
+# Before the packages, so a failing package can't skip it. Users who already have
+# these apps keep them; install.ps1 removes them per user.
+if ($RemoveExtras) {
+    $names = @($packageConfig.Remove | Where-Object { $_ -ne 'OneDrive' })
+    $provisioned = @(Get-AppxProvisionedPackage -Online | Where-Object { $names -contains $_.DisplayName })
+    $deprovisioned = 0
+    foreach ($package in $provisioned) {
+        $code = Invoke-Logged { Remove-AppxProvisionedPackage -Online -PackageName $package.PackageName -ErrorAction Stop | Out-Null }
+        if ($code -eq 0) { $deprovisioned++ } else { Add-LogLine "Could not stop provisioning $($package.DisplayName)." }
+    }
+    if ($deprovisioned -gt 0) { $done += "$deprovisioned Windows extras no longer provisioned for new users" }
 }
 
 $packages = $systemPackages

@@ -318,7 +318,7 @@ See NeoMutt's [configuration guide](https://neomutt.org/guide/configuration) and
 
 ### Windows
 
-The six selectable steps are:
+The seven selectable steps are:
 
 1. **Chocolatey system packages (requires `--sudo`):** PowerShell 7
    (`powershell-core`, for all users), Everything and Total Commander by default,
@@ -333,9 +333,18 @@ The six selectable steps are:
    the Windows Terminal font.
 6. **PowerShell config:** the config folder, a small `$PROFILE` bootstrap,
    the `DOTFILES` environment variable used by `help-dots`, and Windows Terminal:
-   PowerShell 7 as the default profile and MesloLGS NF as the font of every
-   profile. Terminal's `settings.json` is saved as `.bak` first; a file the
-   installer can't read is left alone with a warning.
+   PowerShell 7 as the default profile, Windows PowerShell 5.1 and Azure Cloud
+   Shell hidden from the list, and MesloLGS NF as the font of every profile.
+   Terminal's `settings.json` is saved as `.bak` first; a file the installer
+   can't read is left alone with a warning. Windows PowerShell 5.1 itself is part
+   of Windows and stays installed.
+7. **Remove Windows extras:** Solitaire, the Xbox app and overlays, consumer
+   Teams, Clipchamp, News, Weather, Bing Search, Get Help, Tips, Feedback Hub and
+   OneDrive by default (the `Remove` list in `packages.psd1`), for the current
+   user; with `--sudo` they are also no longer provisioned for new users. The Xbox
+   sign-in parts stay, because games and the Store depend on them. OneDrive is
+   kept, with a warning, while one of your folders syncs to it or an account is
+   signed in. Anything removed can come back from the Store.
 
 The prompt uses **Oh My Posh with the Takuya theme**: path, Git status, time
 and command status. It is a similar two-line setup to Linux, with its own theme.
@@ -358,7 +367,8 @@ still stop their run; the installer does not claim that failed work succeeded.
 
 OpenVPN and NetLimiter are not included in the package lists.
 `windows\install-admin.ps1` can also run directly from an elevated shell;
-add `-Apps` to include the optional Chocolatey group.
+add `-Apps` to include the optional Chocolatey group, `-RemoveExtras` to stop
+provisioning the `Remove` list for new users.
 
 ## Choose your Windows packages
 
@@ -371,8 +381,11 @@ one per line, in these groups:
 | `ChocolateySystem` | The main Chocolatey step |
 | `ChocolateyApps` | The optional apps step |
 | `Scoop` | The per-user Scoop step; package IDs from the main/extras buckets |
+| `Remove` | The Windows extras step; AppX package names, plus `OneDrive` |
 
-The local file replaces all three lists; it is not merged with the defaults.
+The local file replaces the first three lists; it is not merged with the defaults.
+`Remove` is optional there: without it, the default list applies, and `@()`
+removes nothing.
 It is ignored by Git, so personal choices do not trip the installer's
 clean-checkout check. The main installer and elevated helper use the same file.
 Delete the local file to return to the shared defaults.

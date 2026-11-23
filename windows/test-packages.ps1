@@ -24,18 +24,24 @@ try {
     Assert ($defaults.Scoop -contains 'git') 'Default Scoop list was not loaded'
     Assert ($defaults.ChocolateySystem -contains 'powershell-core') 'PowerShell 7 must be installed for all users through Chocolatey'
     Assert ($defaults.Scoop -notcontains 'pwsh') 'Default PowerShell must not be installed twice'
+    Assert ($defaults.Remove -contains 'Microsoft.MicrosoftSolitaireCollection' -and $defaults.Remove -contains 'OneDrive') 'Default Remove list was not loaded'
+    Assert ($defaults.Remove -notcontains 'Microsoft.XboxIdentityProvider' -and $defaults.Remove -notcontains 'Microsoft.Xbox.TCUI') 'Xbox sign-in parts must stay; games and Store depend on them'
     Assert ($defaults.ChocolateySystem -notcontains 'openvpn' -and $defaults.ChocolateySystem -notcontains 'netlimiter') 'Removed packages reappeared'
     "@{ ChocolateySystem=@('custom-system'); ChocolateyApps=@('custom-app'); Scoop=@('custom-tool','custom-tool') }" | Set-Content -LiteralPath $local
     $custom = & $loader
     Assert ($custom.ChocolateySystem.Count -eq 1 -and $custom.ChocolateySystem[0] -eq 'custom-system') 'Local list did not replace defaults'
     Assert ($custom.Scoop.Count -eq 1 -and $custom.Scoop[0] -eq 'custom-tool') 'Duplicates were not removed'
+    Assert ($custom.Remove.Count -eq $defaults.Remove.Count) 'A local file without Remove must keep the default Remove list'
+    "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(); Remove=@() }" | Set-Content -LiteralPath $local
+    Assert ((& $loader).Remove.Count -eq 0) 'An empty local Remove list must remove nothing'
     foreach ($bad in @(
         "@{ ChocolateySystem=@(); ChocolateyApps=@() }",
         "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop='git' }",
         "@{ ChocolateySystem=@('--force'); ChocolateyApps=@(); Scoop=@() }",
         "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@('extras/git') }",
         "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(); Typo=@() }",
-        "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(Get-Date) }"
+        "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(Get-Date) }",
+        "@{ ChocolateySystem=@(); ChocolateyApps=@(); Scoop=@(); Remove='OneDrive' }"
     )) {
         $bad | Set-Content -LiteralPath $local
         $rejected = $false
