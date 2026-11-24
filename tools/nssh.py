@@ -216,10 +216,62 @@ def editor():
     return None
 
 
+SSH_VALUE_FLAGS = set('BbcDEeFIiJLlmOoPpQRSWw')
+
+
+def destination(args):
+    """The host ssh connects to, without user@ and :port, or ''."""
+    skip = False
+    for arg in args:
+        if skip:
+            skip = False
+        elif arg == '--':
+            continue
+        elif arg.startswith('-') and len(arg) > 1:
+            # -p 22 takes the next argument, -p22 carries it
+            skip = arg[-1] in SSH_VALUE_FLAGS and not any(c in SSH_VALUE_FLAGS for c in arg[1:-1])
+        else:
+            host = arg.removeprefix('ssh://').rsplit('@', 1)[-1]
+            return host.split(':', 1)[0] if host.count(':') == 1 else host
+    return ''
+
+
+def tmux(*command):
+    return subprocess.run(['tmux', *command], capture_output=True, text=True).stdout.strip()
+
+
+def tmux_title(title):
+    """Names the tmux window after the host; returns how to restore it."""
+    pane = os.environ.get('TMUX_PANE')
+    if not os.environ.get('TMUX') or not pane or not title or not shutil.which('tmux'):
+        return None
+    try:
+        old = tmux('display-message', '-p', '-t', pane, '#{automatic-rename}\t#{window_name}')
+        tmux('rename-window', '-t', pane, title)
+    except OSError:
+        return None
+    automatic, _, name = old.partition('\t')
+    return pane, automatic == '1', name
+
+
+def tmux_restore(saved):
+    if not saved:
+        return
+    pane, automatic, name = saved
+    try:
+        if automatic:
+            tmux('set-window-option', '-t', pane, 'automatic-rename', 'on')
+        else:
+            tmux('rename-window', '-t', pane, name)
+    except OSError:
+        pass
+
+
 def connect(args, name=''):
     """Runs ssh in this terminal, then logs the session and remembers it."""
     line = shlex.join(args)
     start = int(time.time())
+    title = tmux_title(name or destination(args))  # the window shows the host, not python3
     previous = signal.signal(signal.SIGINT, signal.SIG_IGN)  # Ctrl-C belongs to ssh
     try:
         code = subprocess.call(['ssh', *args])
@@ -228,6 +280,7 @@ def connect(args, name=''):
         return 127
     finally:
         signal.signal(signal.SIGINT, previous)
+        tmux_restore(title)
     end = int(time.time())
     entries = load()
     match = next((e for e in entries if e.args == line), None)
