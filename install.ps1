@@ -892,6 +892,23 @@ if ($Font) {
         $changed += "font $Font"
     }
 }
+# Keypad + and - send PuTTY's application keypad codes, so powwow's door keys
+# (open, close) work as in PuTTY; Windows Terminal ignores keypad mode itself.
+# A binding the user already has for these keys is left alone.
+$bound = @(@($settings['actions']) + @($settings['keybindings']) | Where-Object { $_ -is [System.Collections.IDictionary] } | ForEach-Object { "$($_['keys'])" })
+$actions = @($settings['actions'] | Where-Object { $null -ne $_ })
+$keypad = [ordered]@{ numpad_plus = "$([char]27)Ol"; numpad_minus = "$([char]27)Om" }
+$added = $false
+foreach ($key in $keypad.Keys) {
+    if ($bound -notcontains $key) {
+        $actions += [ordered]@{ command = [ordered]@{ action = 'sendInput'; input = $keypad[$key] }; keys = $key }
+        $added = $true
+    }
+}
+if ($added) {
+    $settings['actions'] = $actions
+    $changed += 'keypad + and - send PuTTY codes'
+}
 if ($changed.Count -eq 0) { return }
 [IO.File]::WriteAllText($Out, ($settings | ConvertTo-Json -Depth 64) + "`n")
 $changed -join ', '

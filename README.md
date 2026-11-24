@@ -348,7 +348,10 @@ The ten selectable steps are:
 6. **PowerShell config:** the config folder, the Neovim config (`%LOCALAPPDATA%\nvim`), a small `$PROFILE` bootstrap,
    the `DOTFILES` environment variable used by `help-dots`, and Windows Terminal:
    PowerShell 7 as the default profile, Windows PowerShell 5.1 and Azure Cloud
-   Shell hidden from the list, and MesloLGS NF as the font of every profile.
+   Shell hidden from the list, MesloLGS NF as the font of every profile, and
+   keypad + and - sending PuTTY's keypad codes (`ESC O l`, `ESC O m`), so
+   powwow's door keys work in Windows Terminal; zsh still types + and - with
+   them, PowerShell doesn't (use the main keys there).
    Terminal's `settings.json` is saved as `.bak` first; a file the installer
    can't read is left alone with a warning. Windows PowerShell 5.1 itself is part
    of Windows and stays installed.

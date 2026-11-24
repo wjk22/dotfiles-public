@@ -63,6 +63,11 @@ done
 unset _dircolors
 zstyle ':completion:*:default' list-colors "${(s.:.)LS_COLORS}"
 
+# Windows Terminal sends PuTTY's keypad codes for keypad + and - (the Windows
+# installer sets that up for powwow/MUME); at the prompt they type + and -.
+bindkey -s '^[Ol' '+'
+bindkey -s '^[Om' '-'
+
 # Put personal settings (PATH additions, tokens, ...) in ~/.zshrc.local.
 # Loaded last so they can override the shared defaults without editing this file.
 [[ ! -r ~/.zshrc.local ]] || source ~/.zshrc.local
